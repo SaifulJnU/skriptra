@@ -238,6 +238,28 @@ $$\mathbb{P}(\mathbf{x} \mid y=k) = \prod_{j=1}^p \mathbb{P}(x_j \mid y=k)$$
 
 ---
 
+# ১১.৫ কেন / কেন নয় (Why & Why Not)
+
+> এই অংশটা শুধু "কী" নয়, "**কেন**" বোঝার জন্য — quiz-এ এই reasoning-ই আসল নম্বর আনে।
+
+✅❌ **Model কেন score দেয়, class নয়?** কারণ (১) continuous score-এ optimization সহজ (derivative নেওয়া যায়), (২) score-এ বেশি তথ্য, (৩) score→class করা যায় কিন্তু class→score **অসম্ভব** (অপরিবর্তনীয়)।
+
+✅❌ **Class → Score কেন অসম্ভব?** একবার "বিড়াল" বলে দিলে কতটা নিশ্চিত ছিলে সেই % আর ফেরত পাওয়া যায় না — তথ্য হারিয়ে গেছে। তাই একমুখী।
+
+✅❌ **Binary scoring-এ threshold কেন $c=0$, probabilistic-এ $c=0.5$?** Scoring-এ সিদ্ধান্ত হয় $\operatorname{sgn}(f)$ দিয়ে — চিহ্ন বদলায় ০-তে। Probabilistic-এ $\pi \in [0,1]$, মাঝবিন্দু ০.৫।
+
+✅❌ **Linear classifier কি সবসময় সোজা boundary দেয়?** ❌ না। Feature engineering (polynomial/basis) করলে **মূল input space-এ non-linear** boundary দিতে পারে। "Linear" মানে weights-এ linear, ছবিতে নয়।
+
+✅❌ **Softmax কি logistic-এর চেয়ে আলাদা জিনিস?** ❌ না — softmax হলো logistic-এর **generalization**; $g=2$ দিলে softmax → logistic-এ পরিণত হয়।
+
+✅❌ **LDA কেন linear, QDA কেন quadratic?** LDA সব class-এ **সমান** covariance ধরে → quadratic term কাটাকাটি হয়ে যায় → linear boundary। QDA **আলাদা** covariance ধরে → quadratic term থেকে যায় → বাঁকা boundary।
+
+✅❌ **Naive Bayes-এ "naive" কেন?** কারণ এটা ধরে নেয় feature গুলো class দেওয়া থাকলে **conditionally independent** — যা প্রায়ই বাস্তবে মিথ্যা, তবু কাজ করে।
+
+✅❌ **Logistic Regression কেন discriminative, generative নয়?** কারণ এটা সরাসরি $\mathbb{P}(y\mid\mathbf{x})$ / discriminant function শেখে — $\mathbb{P}(\mathbf{x}\mid y)$ model করে Bayes দিয়ে উল্টো হিসাব করে না (যা generative করত)।
+
+---
+
 # ১২. অঙ্ক ও সমাধান
 
 > এই অঙ্কগুলো পরীক্ষায় আসার মতো। আগে নিজে চেষ্টা করো, তারপর সমাধান দেখো। ✍️
