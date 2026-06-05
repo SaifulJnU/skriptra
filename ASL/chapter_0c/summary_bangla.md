@@ -202,6 +202,39 @@ Exploratory Data Analysis (EDA)
 
 ---
 
+# 🔔 Gaussian / Normal Distribution (গভীরভাবে)
+
+> Mind map-এর **"6. Probability & Distribution → Normal Distribution"** অংশটা আলাদা করে বুঝে নাও — কারণ এটা পুরো কোর্সে বারবার আসে।
+
+📖 **সংজ্ঞা:** **Gaussian = Bell-shaped distribution**, যেখানে বেশিরভাগ ডেটা **মাঝখানে** থাকে এবং **দুই পাশে ধীরে ধীরে কমে** যায়। 🔔
+
+🔊 **উচ্চারণ:** *Gaussian* → "গাউসিয়ান"; *Normal* → "নরমাল"। (দুটো একই জিনিস।)
+
+🧮 **গণিত:** দুটো parameter দিয়ে পুরোপুরি নির্ধারিত — mean $\mu$ (চূড়া কোথায়) আর variance $\sigma^2$ (কতটা চওড়া):
+$$f(x) = \frac{1}{\sqrt{2\pi\sigma^2}}\, e^{-\frac{(x-\mu)^2}{2\sigma^2}}, \qquad X \sim \mathcal{N}(\mu, \sigma^2)$$
+
+👶 **গল্প:** ক্লাসের পরীক্ষার নম্বর ভাবো — বেশিরভাগ ছাত্র গড়ের আশেপাশে, খুব কম জন একদম বেশি বা একদম কম। আঁকলে একটা **ঘণ্টার আকৃতি (bell curve)** পাবে। মাঝখানে = mean/median/mode (তিনটাই এক জায়গায়, কারণ এটা **symmetric, skewness ≈ 0**)।
+
+📏 **68–95–99.7 নিয়ম (খুব দরকারি):**
+- ~**৬৮%** ডেটা থাকে $\mu \pm 1\sigma$-এর মধ্যে,
+- ~**৯৫%** থাকে $\mu \pm 2\sigma$-এর মধ্যে,
+- ~**৯৯.৭%** থাকে $\mu \pm 3\sigma$-এর মধ্যে।
+👉 এজন্যই $3\sigma$-এর বাইরের মান প্রায়ই **outlier** ধরা হয়।
+
+✍️ **উদাহরণ (GPA ডেটা):** যদি GPA Gaussian হয়, $\mu = 3.0$, $\sigma = 0.4$ → বেশিরভাগ (৬৮%) ছাত্র 2.6–3.4 এর মধ্যে; 4.0-এর বেশি বা 1.8-এর কম খুব বিরল। GPA = 15.0 তাহলে অনেক $\sigma$ দূরে → স্পষ্ট outlier।
+
+## 🔗 এই কোর্সের অন্য জায়গার সাথে সম্পর্ক
+
+- **`chapter_0c` (এই ফাইল) — EDA:** Gaussian হলো Univariate analysis-এ distribution-এর আকৃতি বোঝার মূল ভিত্তি; **skewness** মাপে এটা কতটা একপাশে কাত, **kurtosis** মাপে চূড়া কত তীক্ষ্ণ। Symmetric bell = skewness 0।
+- **`ml_terminology_for_babies_bangla.md`:** এখানে Gaussian একটা famous distribution হিসেবে আছে — উচ্চতা/নম্বরের মতো বাস্তব data Gaussian মেনে চলে।
+- **`chapter_4` (Risk Minimization):** 🔑 **Gaussian noise ⟺ L2 loss।** অর্থাৎ error যদি Gaussian হয়, তাহলে squared-error (L2) minimize করাই maximum-likelihood। (Laplace হলে হতো L1।)
+- **`chapter_5` (Linear Regression):** model ধরে $y = \beta_0 + \mathbf{x}^\top\boldsymbol\beta + \varepsilon$ যেখানে $\varepsilon \sim \mathcal{N}(0, \sigma^2)$ — এই Gaussian noise ধরার জন্যই OLS ($\hat{\boldsymbol\theta} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}$) = maximum-likelihood সমাধান।
+- **Central Limit Theorem (mind map §6):** অনেকগুলো random জিনিসের গড় বড় $n$-এ গিয়ে **Gaussian**-এর কাছে যায় — এজন্যই Gaussian এত সর্বত্র।
+
+🧠 **টোটকা:** "Gaussian = ঘণ্টা 🔔; mean = চূড়া, σ = চওড়া; 68-95-99.7; noise Gaussian হলেই L2/OLS।"
+
+---
+
 # 🧩 ছোট উদাহরণ-অঙ্ক
 
 ### সমস্যা ১ — Univariate (Mean ও Median)
@@ -218,6 +251,11 @@ GPA ডেটায় একটা মান **15.0**। এটা কী এ�
 (ক) শুধু GPA-এর histogram। (খ) Study Hours vs GPA-এর scatter plot। (গ) GPA + Attendance + ঘুম-এর heatmap। প্রতিটা কোন গ্রুপ?
 
 **সমাধান:** (ক) **Univariate** (১টা variable)। (খ) **Bivariate** (২টা)। (গ) **Multivariate** (৩+)।
+
+### সমস্যা ৪ — Gaussian (68–95–99.7 নিয়ম)
+GPA Gaussian, $\mu = 3.0$, $\sigma = 0.4$। (ক) কত % ছাত্র 2.6–3.4 এর মধ্যে? (খ) GPA = 4.6 কি স্বাভাবিক?
+
+**সমাধান:** (ক) 2.6–3.4 = $\mu \pm 1\sigma$ → প্রায় **৬৮%**। (খ) 4.6 = $\mu + 4\sigma$ (3.0 + 4×0.4) → $3\sigma$-এর অনেক বাইরে, তাই **outlier/অস্বাভাবিক** (এবং GPA scale-এও অসম্ভব)।
 
 ---
 
