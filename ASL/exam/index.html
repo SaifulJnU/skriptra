@@ -71,17 +71,17 @@
     <div class="card" style="background:var(--panel2);margin-top:16px">
       <h2>Rules</h2>
       <ul>
-        <li><b>30 questions</b> (6 from each of Chapters 1–5), mixed True/False.</li>
+        <li><b>60 questions</b> (12 from each of Chapters 1–5), mixed True/False.</li>
         <li>Scoring: <b style="color:var(--green)">+1</b> for each correct, <b style="color:var(--red)">−1</b> for each incorrect.</li>
         <li><b>Unanswered = 0</b> (no penalty), so skip if you are unsure.</li>
-        <li>Time limit: <b>30:00</b>. The exam auto-submits when time runs out.</li>
+        <li>Time limit: <b>60:00</b>. The exam auto-submits when time runs out.</li>
         <li>You may navigate freely and change answers before submitting.</li>
       </ul>
     </div>
     <div class="row">
       <button id="startBtn" class="btn-primary">Start Exam</button>
       <label class="muted">Time limit (min):
-        <input id="mins" type="number" value="30" min="1" max="180"
+        <input id="mins" type="number" value="60" min="1" max="180"
           style="width:64px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px">
       </label>
     </div>
@@ -90,8 +90,8 @@
   <!-- ===== EXAM ===== -->
   <section id="exam" class="card hide">
     <div class="spread" style="margin-bottom:14px">
-      <span class="pill" id="qmeta">Question 1 / 30</span>
-      <span class="timer" id="timer">30:00</span>
+      <span class="pill" id="qmeta">Question 1 / 60</span>
+      <span class="timer" id="timer">60:00</span>
     </div>
     <span class="pill" id="qchapter">Chapter 1</span>
     <p class="qtext" id="qtext">…</p>
@@ -106,7 +106,7 @@
     </div>
     <hr style="border-color:var(--line);margin:18px 0">
     <div class="spread">
-      <span class="muted" id="progress">Answered 0 / 30</span>
+      <span class="muted" id="progress">Answered 0 / 60</span>
       <button class="btn-primary" onclick="submitExam(false)">Submit Exam</button>
     </div>
     <div class="palette" id="palette"></div>
@@ -116,7 +116,7 @@
   <section id="results" class="card hide">
     <h1>Results</h1>
     <div class="row" style="margin:14px 0">
-      <div class="stat"><b class="score-big" id="rScore">0</b>Net score (/30)</div>
+      <div class="stat"><b class="score-big" id="rScore">0</b>Net score (/60)</div>
       <div class="stat"><b style="color:var(--green)" id="rCorrect">0</b>Correct</div>
       <div class="stat"><b style="color:var(--red)" id="rWrong">0</b>Incorrect</div>
       <div class="stat"><b style="color:var(--amber)" id="rSkip">0</b>Skipped</div>
@@ -175,6 +175,49 @@ const QUESTIONS = [
   {ch:5, q:"XᵀX is invertible if and only if X has full column rank.", a:true, r:"Full column rank ⟺ XᵀX invertible."},
   {ch:5, q:"The absolute (L1) loss |y − f(x)| is differentiable everywhere, including at 0.", a:false, r:"L1 has a kink at 0 and is not differentiable there."},
   {ch:5, q:"Adding λI to XᵀX (ridge regularization) can restore invertibility when XᵀX is singular.", a:true, r:"Ridge term makes the matrix invertible."},
+
+  /* ===== Conceptual set: 30 items, 12 per chapter overall (Ch 1–5) =====
+     Concept-based reasoning questions, not direct slide recall. */
+
+  // ---- Chapter 1: ML Foundations (concept) ----
+  {ch:1, q:"A model that achieves zero training error is guaranteed to generalize well to unseen data.", a:false, r:"Zero training error often signals overfitting; generalization is unrelated to a perfect fit."},
+  {ch:1, q:"The true goal of supervised learning is to minimize the expected loss over the data-generating distribution, not merely the loss on the training sample.", a:true, r:"We minimize true (expected) risk; empirical risk is only its estimate."},
+  {ch:1, q:"Empirical risk is the average loss computed on the training sample and serves as an estimate of the true risk.", a:true, r:"Definition of empirical risk as a sample estimate of true risk."},
+  {ch:1, q:"In a regression task the target variable is categorical rather than continuous.", a:false, r:"Regression predicts a continuous target; categorical targets define classification."},
+  {ch:1, q:"All else equal, collecting more independent training data tends to reduce the variance of a learned model's predictions.", a:true, r:"More data lowers estimation variance."},
+  {ch:1, q:"Two models with identical training error must have identical generalization error.", a:false, r:"Equal training error says nothing about behaviour on unseen data."},
+
+  // ---- Chapter 2: Classification (concept) ----
+  {ch:2, q:"A 0.5 decision threshold on a probabilistic classifier is always optimal regardless of class-specific costs.", a:false, r:"The cost-optimal threshold shifts when misclassification costs or priors are unequal."},
+  {ch:2, q:"Raising the score threshold for predicting the positive class generally increases precision while decreasing recall.", a:true, r:"A stricter threshold yields fewer, more confident positives → higher precision, lower recall."},
+  {ch:2, q:"A linear classifier can perfectly separate any two classes regardless of how the data are arranged.", a:false, r:"Only linearly separable data can be perfectly split by a linear boundary."},
+  {ch:2, q:"The sigmoid/logistic output can be read as a probability because its range is the open interval (0, 1).", a:true, r:"Its bounded (0,1) range makes a probabilistic interpretation natural."},
+  {ch:2, q:"Generative classifiers model P(x|y) and P(y), whereas discriminative classifiers model P(y|x) directly.", a:true, r:"Core distinction between generative and discriminative approaches."},
+  {ch:2, q:"Quadratic Discriminant Analysis arises when each class is allowed its own covariance matrix.", a:true, r:"Unequal Σ per class keeps the quadratic terms → QDA."},
+
+  // ---- Chapter 3: Capacity / Generalization (concept) ----
+  {ch:3, q:"A model with high bias and low variance tends to underfit the data.", a:true, r:"High bias = too simple → underfitting."},
+  {ch:3, q:"Regularization works by reducing a model's effective capacity to combat overfitting.", a:true, r:"It penalizes complexity, lowering effective capacity."},
+  {ch:3, q:"Increasing the size of the training set typically widens the gap between training and test error.", a:false, r:"More data usually narrows the generalization gap."},
+  {ch:3, q:"The VC dimension quantifies capacity as the size of the largest point set the hypothesis class can shatter.", a:true, r:"Definition of VC dimension."},
+  {ch:3, q:"A model that simply memorizes the training set tends to have low bias but high variance.", a:true, r:"Memorization fits training data (low bias) but is unstable across samples (high variance)."},
+  {ch:3, q:"The No Free Lunch theorem implies that choosing an inductive bias suited to the problem is unnecessary.", a:false, r:"It implies the opposite: assumptions/inductive bias are essential to do well on a given problem."},
+
+  // ---- Chapter 4: Risk Minimization (concept) ----
+  {ch:4, q:"Empirical risk minimization selects the model that minimizes the average loss over the training data.", a:true, r:"That is the ERM principle."},
+  {ch:4, q:"In gradient descent the learning rate controls the size of each parameter update step.", a:true, r:"Learning rate scales the step length."},
+  {ch:4, q:"A learning rate that is too large can cause gradient descent to overshoot and diverge.", a:true, r:"Excessive steps can oscillate or diverge."},
+  {ch:4, q:"Directly minimizing the 0–1 loss is easy because it is convex and differentiable.", a:false, r:"0–1 loss is non-convex and non-differentiable, so surrogates are used."},
+  {ch:4, q:"Maximum likelihood estimation chooses parameters that maximize the probability of the observed data.", a:true, r:"Definition of MLE."},
+  {ch:4, q:"Mini-batch gradient descent trades off the noisy updates of SGD against the higher cost of full-batch descent.", a:true, r:"Mini-batches sit between SGD and full-batch in noise and cost."},
+
+  // ---- Chapter 5: Linear Regression (concept) ----
+  {ch:5, q:"Linear regression requires the model to be linear in its parameters, but not necessarily in the raw inputs.", a:true, r:"Basis-function expansions keep linearity in parameters while modelling non-linear inputs."},
+  {ch:5, q:"Outliers exert a larger influence on an L2 (squared-error) fit than on an L1 (absolute-error) fit.", a:true, r:"Squaring magnifies large residuals, so L2 is more outlier-sensitive."},
+  {ch:5, q:"Adding more features to an OLS model can never increase its training error.", a:true, r:"Extra columns can only keep or lower the least-squares training error."},
+  {ch:5, q:"Strong multicollinearity among features can make the least-squares solution unstable.", a:true, r:"Near-singular XᵀX inflates variance of the estimates."},
+  {ch:5, q:"Ridge regression shrinks coefficients toward zero by adding an L2 penalty on the weights.", a:true, r:"Ridge adds λ‖θ‖² → coefficient shrinkage."},
+  {ch:5, q:"The normal equations have no closed-form solution and must always be solved iteratively.", a:false, r:"They yield the closed-form θ̂ = (XᵀX)⁻¹Xᵀy when XᵀX is invertible."},
 ];
 
 let idx = 0;
@@ -263,9 +306,9 @@ function submitExam(auto){
   $('rSkip').textContent = skip;
 
   let verdict;
-  if(score>=27) verdict='Excellent — chapters 1–5 well mastered.';
-  else if(score>=20) verdict='Good — review the incorrect answers.';
-  else if(score>=12) verdict='Needs work — re-read the weak chapters.';
+  if(score>=54) verdict='Excellent — chapters 1–5 well mastered.';
+  else if(score>=40) verdict='Good — review the incorrect answers.';
+  else if(score>=24) verdict='Needs work — re-read the weak chapters.';
   else verdict='Re-study the chapter summaries before re-attempting.';
   $('rVerdict').textContent = verdict + (auto?'  (Time expired — auto-submitted.)':'');
 
