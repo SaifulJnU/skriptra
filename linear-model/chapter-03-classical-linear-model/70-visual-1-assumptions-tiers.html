@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chapter 3 — visual 1: the three tiers of assumptions</title>
+<style>
+  body{margin:0;background:#ffffff;display:flex;justify-content:center;padding:32px 16px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;}
+  .card{max-width:760px;width:100%;}
+</style>
+</head>
+<body>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 430" role="img">
+<title>The three tiers of assumptions in the classical linear model</title>
+<desc>A three row diagram showing that assumptions A1, A2 and A5 give an unbiased estimator, adding A3 and A4 gives the Gauss-Markov result that OLS is BLUE, and further adding A6, normality, gives exact t-tests, F-tests, confidence intervals, and equivalence of OLS with maximum likelihood. A note states normality is not required for BLUE.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="60" y="50" width="200" height="60" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="160" y="76" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">A1, A2, A5</text>
+<text x="160" y="94" text-anchor="middle" font-size="11" fill="#5F5E5A">linearity · zero mean · full rank</text>
+<line x1="260" y1="80" x2="340" y2="80" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="340" y="50" width="280" height="60" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="480" y="76" text-anchor="middle" font-size="13" font-weight="500" fill="#085041">unbiased</text>
+<text x="480" y="94" text-anchor="middle" font-size="11" fill="#0F6E56">E(&#946;&#770;) = &#946; — no normality needed here</text>
+<line x1="160" y1="110" x2="160" y2="180" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="60" y="180" width="200" height="60" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="160" y="206" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">+ A3, A4</text>
+<text x="160" y="224" text-anchor="middle" font-size="11" fill="#5F5E5A">homoscedastic · uncorrelated</text>
+<line x1="260" y1="210" x2="340" y2="210" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="340" y="180" width="280" height="60" rx="8" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
+<text x="480" y="206" text-anchor="middle" font-size="13" font-weight="500" fill="#26215C">BLUE (Gauss–Markov)</text>
+<text x="480" y="224" text-anchor="middle" font-size="11" fill="#3C3489">min variance — normality still not required</text>
+<line x1="160" y1="240" x2="160" y2="310" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="60" y="310" width="200" height="60" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="160" y="336" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">+ A6</text>
+<text x="160" y="354" text-anchor="middle" font-size="11" fill="#5F5E5A">normal errors</text>
+<line x1="260" y1="340" x2="340" y2="340" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="340" y="310" width="280" height="70" rx="8" fill="#AFA9EC" stroke="#534AB7" stroke-width="0.5"/>
+<text x="480" y="333" text-anchor="middle" font-size="13" font-weight="500" fill="#26215C">exact inference</text>
+<text x="480" y="351" text-anchor="middle" font-size="11" fill="#3C3489">t-test, F-test, CI exact</text>
+<text x="480" y="367" text-anchor="middle" font-size="11" fill="#3C3489">and OLS = ML</text>
+<text x="340" y="412" text-anchor="middle" font-size="11" fill="#712B13">only A1 (misspecification) can bias &#946;&#770; — A3/A4 cost efficiency, not bias</text>
+</svg>
+</div>
+</body>
+</html>

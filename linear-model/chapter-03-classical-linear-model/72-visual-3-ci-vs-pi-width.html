@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chapter 3 — visual 3: confidence interval vs prediction interval</title>
+<style>
+  body{margin:0;background:#ffffff;display:flex;justify-content:center;padding:32px 16px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;}
+  .card{max-width:760px;width:100%;}
+</style>
+</head>
+<body>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 420" role="img">
+<title>Confidence interval versus prediction interval, Sheet 4 numbers</title>
+<desc>A vertical comparison chart on a dollar axis from about 70 to 220. Two bars share the same center point estimate of 146.24 dollars. The narrow teal bar is the 95 percent confidence interval for the mean, spanning from 142.10 to 150.38, a width of 8.28 dollars. The wide coral bar is the 95 percent prediction interval for a new individual, spanning from 76.07 to 216.41, a width of 140.34 dollars, about seventeen times wider, because it adds the new observation's own irreducible error on top of the estimation uncertainty.</desc>
+<line x1="90" y1="30" x2="90" y2="370" stroke="#5F5E5A" stroke-width="1"/>
+<text x="70" y="26" text-anchor="middle" font-size="11" fill="#5F5E5A">$</text>
+<text x="80" y="40" text-anchor="end" font-size="10" fill="#888780">220</text>
+<line x1="84" y1="36" x2="90" y2="36" stroke="#888780" stroke-width="0.5"/>
+<text x="80" y="205" text-anchor="end" font-size="10" fill="#888780">146</text>
+<line x1="84" y1="201" x2="90" y2="201" stroke="#888780" stroke-width="0.5"/>
+<text x="80" y="364" text-anchor="end" font-size="10" fill="#888780">70</text>
+<line x1="84" y1="360" x2="90" y2="360" stroke="#888780" stroke-width="0.5"/>
+<rect x="200" y="182" width="70" height="38" rx="4" fill="#1D9E75" stroke="#0F6E56" stroke-width="1"/>
+<text x="235" y="160" text-anchor="middle" font-size="12" font-weight="500" fill="#085041">95% CI</text>
+<text x="235" y="245" text-anchor="middle" font-size="11" fill="#0F6E56">[142.10, 150.38]</text>
+<text x="235" y="261" text-anchor="middle" font-size="11" fill="#0F6E56">width = $8.28</text>
+<rect x="380" y="50" width="100" height="302" rx="4" fill="#F0A585" stroke="#993C1D" stroke-width="1"/>
+<text x="430" y="38" text-anchor="middle" font-size="12" font-weight="500" fill="#712B13">95% PI</text>
+<text x="430" y="372" text-anchor="middle" font-size="11" fill="#993C1D">[76.07, 216.41]</text>
+<text x="430" y="388" text-anchor="middle" font-size="11" fill="#993C1D">width = $140.34 — about 17&#215; wider</text>
+<line x1="90" y1="201" x2="530" y2="201" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="545" y="205" font-size="11" fill="#5F5E5A">point estimate $146.24</text>
+<text x="340" y="410" text-anchor="middle" font-size="11" fill="#5F5E5A">CI covers where the mean is · PI covers where one NEW observation lands — it inherits &#949;&#8320;'s own variance too</text>
+</svg>
+</div>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chapter 3 — visual 2: t-test vs F-test decision flow</title>
+<style>
+  body{margin:0;background:#ffffff;display:flex;justify-content:center;padding:32px 16px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;}
+  .card{max-width:760px;width:100%;}
+</style>
+</head>
+<body>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 450" role="img">
+<title>Choosing between a t-test and an F-test</title>
+<desc>A flowchart starting from a hypothesis about beta, asking how many independent equations the restriction contains. One restriction routes to a t-test with formula t equals beta hat minus c over standard error, following a t distribution with n minus p degrees of freedom. Two or more restrictions route to an F-test comparing the restricted and unrestricted sum of squared errors, following an F distribution with r and n minus p degrees of freedom. Both paths converge on comparing to a critical value, noting that t-tests and confidence intervals use the two-sided quantile while F-tests use the one-sided quantile.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="220" y="20" width="240" height="60" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="340" y="46" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">H&#8320;: hypothesis about &#946;</text>
+<text x="340" y="64" text-anchor="middle" font-size="11" fill="#5F5E5A">how many independent equations Cβ=d?</text>
+<line x1="280" y1="80" x2="150" y2="130" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="400" y1="80" x2="530" y2="130" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="185" y="100" text-anchor="middle" font-size="11" fill="#5F5E5A">exactly 1</text>
+<text x="500" y="100" text-anchor="middle" font-size="11" fill="#5F5E5A">2 or more</text>
+<rect x="30" y="130" width="240" height="90" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="150" y="154" text-anchor="middle" font-size="13" font-weight="500" fill="#085041">t-test</text>
+<text x="150" y="174" text-anchor="middle" font-size="11" fill="#0F6E56">t = (&#946;&#770;&#8267; &#8722; c) / se(&#946;&#770;&#8267;)</text>
+<text x="150" y="192" text-anchor="middle" font-size="11" fill="#0F6E56">~ t(n &#8722; p)</text>
+<text x="150" y="208" text-anchor="middle" font-size="10" fill="#0F6E56">single coefficient vs a value</text>
+<rect x="410" y="130" width="240" height="90" rx="8" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
+<text x="530" y="154" text-anchor="middle" font-size="13" font-weight="500" fill="#26215C">F-test</text>
+<text x="530" y="174" text-anchor="middle" font-size="11" fill="#3C3489">F = [(SSE&#8342;&#8320; &#8722; SSE)/r] / [SSE/(n&#8722;p)]</text>
+<text x="530" y="192" text-anchor="middle" font-size="11" fill="#3C3489">~ F(r, n &#8722; p)</text>
+<text x="530" y="208" text-anchor="middle" font-size="10" fill="#3C3489">joint test — restrict and refit, compare fit</text>
+<line x1="150" y1="220" x2="290" y2="290" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="530" y1="220" x2="390" y2="290" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="190" y="290" width="300" height="70" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="340" y="316" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">compare to critical value</text>
+<text x="340" y="334" text-anchor="middle" font-size="11" fill="#5F5E5A">reject H&#8320; if |t| &gt; t-crit, or F &gt; F-crit</text>
+<text x="340" y="400" text-anchor="middle" font-size="11" fill="#712B13">t-test, CI → use 1 &#8722; &#945;/2 (two-sided) | F-test → use 1 &#8722; &#945; (one-sided, always upper tail)</text>
+</svg>
+</div>
+</body>
+</html>
