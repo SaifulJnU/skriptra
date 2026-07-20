@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chapter 1 — visual 2: design matrix anatomy</title>
+<style>
+  body{margin:0;background:#ffffff;display:flex;justify-content:center;padding:32px 16px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;}
+  .card{max-width:760px;width:100%;}
+</style>
+</head>
+<body>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 360" role="img">
+<title>Anatomy of the design matrix X</title>
+<desc>A labeled grid showing that the design matrix X has one row per observation and one column per parameter, with the first column being all ones for the intercept.</desc>
+<text x="230" y="175" text-anchor="end" font-size="13" font-weight="500" fill="#2C2C2A">X =</text>
+<path d="M258,88 L250,88 L250,252 L258,252" fill="none" stroke="#5F5E5A" stroke-width="1.5"/>
+<path d="M489,88 L497,88 L497,252 L489,252" fill="none" stroke="#5F5E5A" stroke-width="1.5"/>
+<text x="565" y="105" font-size="11" fill="#5F5E5A">n &#215; p</text>
+<rect x="260" y="90" width="75" height="160" fill="#FAEEDA"/>
+<rect x="260" y="90" width="225" height="160" fill="none" stroke="#888780" stroke-width="0.5"/>
+<line x1="335" y1="90" x2="335" y2="250" stroke="#888780" stroke-width="0.5"/>
+<line x1="410" y1="90" x2="410" y2="250" stroke="#888780" stroke-width="0.5"/>
+<line x1="260" y1="130" x2="485" y2="130" stroke="#888780" stroke-width="0.5"/>
+<line x1="260" y1="170" x2="485" y2="170" stroke="#888780" stroke-width="0.5"/>
+<line x1="260" y1="210" x2="485" y2="210" stroke="#888780" stroke-width="0.5"/>
+<text x="297" y="78" text-anchor="middle" font-size="11" fill="#633806">intercept</text>
+<text x="372" y="78" text-anchor="middle" font-size="11" fill="#5F5E5A">x&#8321;</text>
+<text x="447" y="78" text-anchor="middle" font-size="11" fill="#5F5E5A">x&#8322;</text>
+<text x="245" y="114" text-anchor="end" font-size="11" fill="#5F5E5A">i=1</text>
+<text x="245" y="154" text-anchor="end" font-size="11" fill="#5F5E5A">i=2</text>
+<text x="245" y="194" text-anchor="end" font-size="11" fill="#5F5E5A">i=3</text>
+<text x="245" y="234" text-anchor="end" font-size="11" fill="#5F5E5A">i=4</text>
+<text x="297" y="114" text-anchor="middle" font-size="13" fill="#633806">1</text>
+<text x="372" y="114" text-anchor="middle" font-size="13" fill="#444441">x&#8321;&#8321;</text>
+<text x="447" y="114" text-anchor="middle" font-size="13" fill="#444441">x&#8321;&#8322;</text>
+<text x="297" y="154" text-anchor="middle" font-size="13" fill="#633806">1</text>
+<text x="372" y="154" text-anchor="middle" font-size="13" fill="#444441">x&#8322;&#8321;</text>
+<text x="447" y="154" text-anchor="middle" font-size="13" fill="#444441">x&#8322;&#8322;</text>
+<text x="297" y="194" text-anchor="middle" font-size="13" fill="#633806">1</text>
+<text x="372" y="194" text-anchor="middle" font-size="13" fill="#444441">x&#8323;&#8321;</text>
+<text x="447" y="194" text-anchor="middle" font-size="13" fill="#444441">x&#8323;&#8322;</text>
+<text x="297" y="234" text-anchor="middle" font-size="13" fill="#633806">1</text>
+<text x="372" y="234" text-anchor="middle" font-size="13" fill="#444441">x&#8324;&#8321;</text>
+<text x="447" y="234" text-anchor="middle" font-size="13" fill="#444441">x&#8324;&#8322;</text>
+<rect x="60" y="288" width="12" height="12" fill="#FAC775"/>
+<text x="80" y="298" font-size="11" fill="#2C2C2A">column 0 is all 1s &#8594; this is the intercept &#946;&#8320;</text>
+<rect x="60" y="310" width="12" height="12" fill="#D3D1C7"/>
+<text x="80" y="320" font-size="11" fill="#2C2C2A">each row is one observation (n rows total)</text>
+<rect x="60" y="332" width="12" height="12" fill="#D3D1C7"/>
+<text x="80" y="342" font-size="11" fill="#2C2C2A">each column is one parameter (p = k+1 columns)</text>
+</svg>
+</div>
+</body>
+</html>
