@@ -11,14 +11,14 @@
 
 # ⚡ THE 30-SECOND TRIAGE
 
-| The question says… | Go to |
-|---|---|
-| "what type of model would you use for $y$?" | **F1** |
-| "correlation between $x$ and $y$" | **F2** |
-| "$R^2$" in a **simple** regression context | **F3** |
-| "interpret a coefficient where $y$ or $x$ (or both) are logged" | **F4** |
-| "how many parameters / degrees of freedom" | **F5** |
-| "is this still a linear model?" | **F6** |
+| The question says…                                                | Go to        |
+| ------------------------------------------------------------------ | ------------ |
+| "what type of model would you use for$y$?"                       | **F1** |
+| "correlation between$x$ and $y$"                               | **F2** |
+| "$R^2$" in a **simple** regression context                 | **F3** |
+| "interpret a coefficient where$y$ or $x$ (or both) are logged" | **F4** |
+| "how many parameters / degrees of freedom"                         | **F5** |
+| "is this still a linear model?"                                    | **F6** |
 
 ---
 
@@ -28,12 +28,12 @@
 
 Look at the **type of $y$** — that alone picks the model family.
 
-| $y$ is… | Model |
-|---|---|
-| continuous, roughly unbounded | classical linear model (Ch 3) |
-| binary, $\{0,1\}$ | logit / probit (Ch 2.3) |
-| a count, $\{0,1,2,\dots\}$ | Poisson (Ch 5 — out of scope, know it exists) |
-| ordered categories | ordinal regression (Ch 6 — out of scope) |
+| $y$ is…                    | Model                                          |
+| ----------------------------- | ---------------------------------------------- |
+| continuous, roughly unbounded | classical linear model (Ch 3)                  |
+| binary,$\{0,1\}$            | logit / probit (Ch 2.3)                        |
+| a count,$\{0,1,2,\dots\}$   | Poisson (Ch 5 — out of scope, know it exists) |
+| ordered categories            | ordinal regression (Ch 6 — out of scope)      |
 
 ### ② USE WHEN
 
@@ -133,12 +133,12 @@ With one covariate, the fitted line's explanatory power and the linear associati
 
 ### ① The table (memorise, don't derive under pressure)
 
-| Model | A one-unit ↑ in $x$ means… |
-|---|---|
-| $y \sim x$ | $\hat\beta_1$ units change in expected $y$ |
-| $\log(y) \sim x$ | approximately $100\hat\beta_1\%$ change in expected $y$ |
-| $y \sim \log(x)$ | a **1% increase** in $x$ is associated with $\hat\beta_1/100$ units change in $y$ |
-| $\log(y) \sim \log(x)$ | a **1% increase** in $x$ is associated with $\hat\beta_1\%$ change in $y$ — this is an **elasticity** |
+| Model                    | A one-unit ↑ in$x$ means…                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| $y \sim x$             | $\hat\beta_1$ units change in expected $y$                                                                          |
+| $\log(y) \sim x$       | approximately$100\hat\beta_1\%$ change in expected $y$                                                              |
+| $y \sim \log(x)$       | a**1% increase** in $x$ is associated with $\hat\beta_1/100$ units change in $y$                            |
+| $\log(y) \sim \log(x)$ | a**1% increase** in $x$ is associated with $\hat\beta_1\%$ change in $y$ — this is an **elasticity** |
 
 ### ② USE WHEN
 
@@ -209,13 +209,13 @@ Every categorical variable with $c$ levels needs $c-1$ dummy columns (else the d
 
 **"Linear" means linear in $\boldsymbol\beta$, not linear in $x$.**
 
-| Model | Still linear (in $\beta$)? |
-|---|---|
-| $y=\beta_0+\beta_1x+\beta_2x^2+\varepsilon$ | ✅ yes — polynomial |
-| $y=\beta_0+\beta_1\log x+\varepsilon$ | ✅ yes |
-| $y=\beta_0+\beta_1x_1+\beta_2x_2+\beta_3x_1x_2+\varepsilon$ | ✅ yes — interaction |
-| $y=\exp(\boldsymbol{x}'\boldsymbol\beta+\varepsilon)$ | ✅ yes, after taking logs |
-| $y=\beta_0+x^{\beta_1}+\varepsilon$ | ❌ no — $\beta_1$ is inside a nonlinear function |
+| Model                                                         | Still linear (in$\beta$)?                        |
+| ------------------------------------------------------------- | -------------------------------------------------- |
+| $y=\beta_0+\beta_1x+\beta_2x^2+\varepsilon$                 | ✅ yes — polynomial                               |
+| $y=\beta_0+\beta_1\log x+\varepsilon$                       | ✅ yes                                             |
+| $y=\beta_0+\beta_1x_1+\beta_2x_2+\beta_3x_1x_2+\varepsilon$ | ✅ yes — interaction                              |
+| $y=\exp(\boldsymbol{x}'\boldsymbol\beta+\varepsilon)$       | ✅ yes, after taking logs                          |
+| $y=\beta_0+x^{\beta_1}+\varepsilon$                         | ❌ no —$\beta_1$ is inside a nonlinear function |
 
 ### ② USE WHEN
 

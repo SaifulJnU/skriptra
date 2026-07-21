@@ -8,7 +8,9 @@
 
 ## এক বাক্যে পুরো অধ্যায়
 
-$$\boxed{\;y=\underbrace{f(x)}_{\text{যা অনুমান করা যায়}}+\underbrace{\varepsilon}_{\text{বিস্ময়}}\;}$$
+$$
+\boxed{\;y=\underbrace{f(x)}_{\text{যা অনুমান করা যায়}}+\underbrace{\varepsilon}_{\text{বিস্ময়}}\;}
+$$
 
 > **রেডিওর উপমা:** তুমি একসাথে দুটো জিনিস শোনো — **গান** (নিয়মিত, অর্থবহ = systematic component) আর **খসখস শব্দ** (এলোমেলো = random error)।
 >
@@ -32,22 +34,22 @@ Galton ৯২৮ জন প্রাপ্তবয়স্ক সন্তা�
 
 ### শব্দভাণ্ডার
 
-| প্রতীক | নাম | অন্য নাম |
-|---|---|---|
-| $y$ | **response** | dependent, regressand, target |
-| $x$ | **covariate** | explanatory, independent, regressor, predictor |
-| $f(x)$ | **systematic component** | signal, mean function |
-| $\varepsilon$ | **random error** | noise, disturbance |
-| $\hat y_i$ | fitted value | prediction |
-| $\hat\varepsilon_i$ | **residual** | — |
+| প্রতীক          | নাম                         | অন্য নাম                                |
+| --------------------- | ------------------------------ | ---------------------------------------------- |
+| $y$                 | **response**             | dependent, regressand, target                  |
+| $x$                 | **covariate**            | explanatory, independent, regressor, predictor |
+| $f(x)$              | **systematic component** | signal, mean function                          |
+| $\varepsilon$       | **random error**         | noise, disturbance                             |
+| $\hat y_i$          | fitted value                   | prediction                                     |
+| $\hat\varepsilon_i$ | **residual**             | —                                             |
 
 ### ⭐ সবচেয়ে গুরুত্বপূর্ণ পার্থক্য
 
-| | টুপি ছাড়া | টুপি সহ |
-|---|---|---|
-| উদাহরণ | $\beta$, $\varepsilon$, $\sigma^2$ | $\hat\beta$, $\hat\varepsilon$, $\hat\sigma^2$ |
-| কী | **সত্য**, অজানা, **স্থির** | **নমুনা থেকে হিসাব করা**, **এলোমেলো** |
-| দেখা যায়? | না | হ্যাঁ |
+|                    | টুপি ছাড়া                                  | টুপি সহ                                                             |
+| ------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| উদাহরণ       | $\beta$, $\varepsilon$, $\sigma^2$             | $\hat\beta$, $\hat\varepsilon$, $\hat\sigma^2$                      |
+| কী               | **সত্য**, অজানা, **স্থির** | **নমুনা থেকে হিসাব করা**, **এলোমেলো** |
+| দেখা যায়? | না                                                 | হ্যাঁ                                                                |
 
 > **তীরন্দাজের উপমা:** $\beta$ হলো **লক্ষ্যবিন্দু** — নির্দিষ্ট, অদৃশ্য, নড়ে না। $\hat\beta$ হলো **তীরটা যেখানে লেগেছে** — নতুন নমুনায় অন্য জায়গায় লাগবে।
 >
@@ -59,12 +61,12 @@ Galton ৯২৮ জন প্রাপ্তবয়স্ক সন্তা�
 
 ### 🔑 $y$-এর ধরনই মডেল বেছে দেয়
 
-| $y$ | মডেল |
-|---|---|
-| **continuous** | classical linear model (অধ্যায় ৩) |
-| **binary** ০/১ | **logit / probit** (২.৩) |
-| **count** ০,১,২,… | Poisson (অধ্যায় ৫) |
-| **ordered category** | ordinal |
+| $y$                       | মডেল                                   |
+| --------------------------- | ------------------------------------------ |
+| **continuous**        | classical linear model (অধ্যায় ৩) |
+| **binary** ০/১      | **logit / probit** (২.৩)           |
+| **count** ০,১,২,… | Poisson (অধ্যায় ৫)                |
+| **ordered category**  | ordinal                                    |
 
 > **পাত্রের উপমা:** জল রাখতে **বালতি**, সুইচ রাখতে **সুইচবক্স**, আপেল রাখতে **ক্রেট**।
 >
@@ -95,6 +97,7 @@ Histogram, boxplot, mean বনাম median।
 > **দ্রুত পরীক্ষা: mean > median ⟹ ডানদিকে হেলানো (right-skewed)**
 
 **মজুরি, ভাড়া, আয়, দাম** — সবই right-skewed। ফলাফল:
+
 - $\varepsilon$-ও হেলে যাবে ⟹ **normality (A6) সমস্যায়**
 - ছড়ানো (spread) মাত্রার সাথে বাড়বে ⟹ **homoscedasticity (A3) সমস্যায়**
 - কয়েকটা বড় মান **high leverage** হবে
@@ -111,12 +114,12 @@ Histogram, boxplot, mean বনাম median।
 
 ### 🔴 Log ব্যাখ্যার চার ক্ষেত্র (মুখস্থ)
 
-| মডেল | $x$ এক একক বাড়লে | $x$ ১% বাড়লে |
-|---|---|---|
-| $y\sim x$ | $\beta_1$ একক | — |
-| $\log y\sim x$ | $100\beta_1$ **%** | — |
-| $y\sim\log x$ | — | $\beta_1/100$ একক |
-| $\log y\sim\log x$ | — | $\beta_1$ **%** (elasticity) |
+| মডেল             | $x$ এক একক বাড়লে | $x$ ১% বাড়লে               |
+| -------------------- | ------------------------------ | ------------------------------------ |
+| $y\sim x$          | $\beta_1$ একক             | —                                   |
+| $\log y\sim x$     | $100\beta_1$ **%**     | —                                   |
+| $y\sim\log x$      | —                             | $\beta_1/100$ একক               |
+| $\log y\sim\log x$ | —                             | $\beta_1$ **%** (elasticity) |
 
 > **মনে রাখার কৌশল: যে পাশে log, সেই পাশ শতাংশ হয়ে যায়।**
 >
@@ -133,7 +136,9 @@ Histogram, boxplot, mean বনাম median।
 
 ### Correlation ও তার তিন সীমাবদ্ধতা
 
-$$r_{xy}=\frac{\widehat{\text{Cov}}(x,y)}{s_xs_y}\in[-1,1]$$
+$$
+r_{xy}=\frac{\widehat{\text{Cov}}(x,y)}{s_xs_y}\in[-1,1]
+$$
 
 1. **শুধু সরলরেখা দেখে।** $y=x^2$ হলে $r=0$ — নিখুঁত সম্পর্ক, কিন্তু correlation কিছুই বলে না
 2. **কার্যকারণ (causation) নয়।** আইসক্রিম বিক্রি ও ডুবে মরা — দুটোই **তাপমাত্রার** কারণে। একেই বলে **confounder**, আর multiple regression-এর পুরো উদ্দেশ্যই এটা সামলানো
@@ -141,7 +146,9 @@ $$r_{xy}=\frac{\widehat{\text{Cov}}(x,y)}{s_xs_y}\in[-1,1]$$
 
 ### 💰 $R^2=r^2$ — শুধু simple regression-এ
 
-$$r=\text{sign}(\hat\beta_1)\cdot\sqrt{R^2}$$
+$$
+r=\text{sign}(\hat\beta_1)\cdot\sqrt{R^2}
+$$
 
 **Sheet 3 Ex 1:** $R^2=0.038$, $\hat\beta_1=+0.71$ ⟹ $r=+\sqrt{0.038}=+0.195$
 
@@ -157,59 +164,73 @@ $$r=\text{sign}(\hat\beta_1)\cdot\sqrt{R^2}$$
 
 ## ১.৩ — নোটেশন ⭐ এখানেই সবচেয়ে মূল্যবান ১৫ মিনিট
 
-$$\boldsymbol{y}=\boldsymbol{X}\boldsymbol\beta+\boldsymbol\varepsilon$$
+$$
+\boldsymbol{y}=\boldsymbol{X}\boldsymbol\beta+\boldsymbol\varepsilon
+$$
 
-| বস্তু | মাত্রা |
-|---|---|
-| $\boldsymbol{y}$ | $n\times1$ |
-| $\boldsymbol{X}$ | $n\times p$, $p=k+1$ |
-| $\boldsymbol\beta$ | $p\times1$ |
-| $\boldsymbol\varepsilon$ | $n\times1$ |
+| বস্তু                 | মাত্রা             |
+| -------------------------- | ------------------------ |
+| $\boldsymbol{y}$         | $n\times1$             |
+| $\boldsymbol{X}$         | $n\times p$, $p=k+1$ |
+| $\boldsymbol\beta$       | $p\times1$             |
+| $\boldsymbol\varepsilon$ | $n\times1$             |
 
 **$\boldsymbol{X}$ = প্রতি পর্যবেক্ষণে একটি সারি, প্রতি প্যারামিটারে একটি কলাম, প্রথম কলাম পুরোটাই ১।**
 
 ### 🚨 $p$-এর ফাঁদ — তিনবার পড়ো
 
-| | বই (Fahrmeir) | কিছু প্রশ্নপত্র |
-|---|---|---|
-| $p$ মানে | **প্যারামিটার** = $k+1$ | **covariate** = $k$ |
-| t-test df | $n-p$ | $n-p-1$ |
-| $\text{rank}(\boldsymbol{X}'\boldsymbol{X})$ | $p$ | $p+1$ |
+|                                                | বই (Fahrmeir)                            | কিছু প্রশ্নপত্র |
+| ---------------------------------------------- | ------------------------------------------ | ----------------------------- |
+| $p$ মানে                                 | **প্যারামিটার** = $k+1$ | **covariate** = $k$   |
+| t-test df                                      | $n-p$                                    | $n-p-1$                     |
+| $\text{rank}(\boldsymbol{X}'\boldsymbol{X})$ | $p$                                      | $p+1$                       |
 
 > 🛟 **নিরাপদ অভ্যাস:** "$n-p$" মুখস্থ করবে না। বরং **মডেল সমীকরণে কটা $\beta$ আছে গোনো** (intercept সহ), সেটা $n$ থেকে বিয়োগ করো।
 >
-> $$\textbf{residual df}=n-(\beta\text{-র সংখ্যা})=n-k-1$$
+> $$
+> \textbf{residual df}=n-(\beta\text{-র সংখ্যা})=n-k-1
+> $$
 >
 > **এটা দুই convention-এই সঠিক।** সন্দেহ হলে $n-k-1$ লিখো।
 
 ### মাত্রা যাচাই — বিনামূল্যে ভুল ধরার উপায়
 
-$$(n\times p)(p\times1)=(n\times1)\ \checkmark$$
+$$
+(n\times p)(p\times1)=(n\times1)\ \checkmark
+$$
 
 ভেতরের মাত্রা না মিললে সূত্র ভুল — **হিসাব শুরু করার আগেই ধরা পড়ে**।
 
-| রাশি | ফলাফল |
-|---|---|
-| $\boldsymbol{X}'\boldsymbol{X}$ | $p\times p$ |
-| $\hat{\boldsymbol\beta}=(\boldsymbol{X}'\boldsymbol{X})^{-1}\boldsymbol{X}'\boldsymbol{y}$ | $p\times1$ ✓ |
-| $\boldsymbol{H}=\boldsymbol{X}(\boldsymbol{X}'\boldsymbol{X})^{-1}\boldsymbol{X}'$ | $n\times n$ (hat matrix) |
-| $\boldsymbol{x}_0'(\boldsymbol{X}'\boldsymbol{X})^{-1}\boldsymbol{x}_0$ | **scalar** (একটা সংখ্যা!) |
+| রাশি                                                                                     | ফলাফল                                |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| $\boldsymbol{X}'\boldsymbol{X}$                                                            | $p\times p$                             |
+| $\hat{\boldsymbol\beta}=(\boldsymbol{X}'\boldsymbol{X})^{-1}\boldsymbol{X}'\boldsymbol{y}$ | $p\times1$ ✓                           |
+| $\boldsymbol{H}=\boldsymbol{X}(\boldsymbol{X}'\boldsymbol{X})^{-1}\boldsymbol{X}'$         | $n\times n$ (hat matrix)                |
+| $\boldsymbol{x}_0'(\boldsymbol{X}'\boldsymbol{X})^{-1}\boldsymbol{x}_0$                    | **scalar** (একটা সংখ্যা!) |
 
 ### Sum of Squares
 
-$$\hat{\boldsymbol\varepsilon}'\hat{\boldsymbol\varepsilon}=\sum\hat\varepsilon_i^2=\textbf{SSE}$$
+$$
+\hat{\boldsymbol\varepsilon}'\hat{\boldsymbol\varepsilon}=\sum\hat\varepsilon_i^2=\textbf{SSE}
+$$
 
-$$\text{SST}=\text{SSE}+\text{explained SS},\qquad R^2=1-\frac{\text{SSE}}{\text{SST}}$$
+$$
+\text{SST}=\text{SSE}+\text{explained SS},\qquad R^2=1-\frac{\text{SSE}}{\text{SST}}
+$$
 
 > ⚠️ **"SSR" কখনো লিখবে না** — কোনো বইয়ে এর মানে "regression", কোনোটায় "residual"। **SSE** লিখো, নয়তো যোগফলটা লিখে দাও।
 
 ### ⭐ একটাই matrix identity মুখস্থ করলে এটাই
 
-$$\text{Cov}(\boldsymbol{Az})=\boldsymbol{A}\,\text{Cov}(\boldsymbol{z})\,\boldsymbol{A}'$$
+$$
+\text{Cov}(\boldsymbol{Az})=\boldsymbol{A}\,\text{Cov}(\boldsymbol{z})\,\boldsymbol{A}'
+$$
 
 **বাঁয়ে $\boldsymbol{A}$, ডানে $\boldsymbol{A}'$।** এটা থেকেই আসে:
 
-$$\text{Cov}(\hat{\boldsymbol\beta})=\sigma^2(\boldsymbol{X}'\boldsymbol{X})^{-1}$$
+$$
+\text{Cov}(\hat{\boldsymbol\beta})=\sigma^2(\boldsymbol{X}'\boldsymbol{X})^{-1}
+$$
 
 আর সেখান থেকে **এই কোর্সের প্রতিটা standard error, t-test ও confidence interval**।
 
@@ -236,15 +257,15 @@ $$\text{Cov}(\hat{\boldsymbol\beta})=\sigma^2(\boldsymbol{X}'\boldsymbol{X})^{-1
 
 ## 🔴 এই অধ্যায়ের ফাঁদগুলো
 
-| ফাঁদ | সঠিক উত্তর |
-|---|---|
-| "$x^2$ থাকলে linear model নয়" | **FALSE** — linear মানে $\beta$-তে linear |
-| "$y=\exp(\dots)$ বিশ্লেষণ করা যায় না" | **FALSE** — log নাও |
-| "$\boldsymbol{X}$-এর মাত্রা $n\times k$" | **FALSE** — $n\times(k+1)$ |
-| "$r=0$ মানে স্বাধীন" | **FALSE** — শুধু সরলরৈখিক সম্পর্ক নেই |
-| "coefficient ধনাত্মক ⟹ correlation ধনাত্মক" | **FALSE** (multiple regression-এ) |
-| "$R^2=r^2$ সবসময়" | **FALSE** — শুধু simple regression |
-| "log coefficient = ১% পরিবর্তনে % পরিবর্তন" | **FALSE** — শুধু log-log মডেলে |
-| "$\hat\beta_0$ = বয়স ০-তে মজুরি" ব্যাখ্যা করা | **বিচারবুদ্ধির ভুল** — extrapolation বলো |
-| "শিক্ষা মজুরি **বাড়ায়** (causes)" | **"associated with"** লিখো |
-| কম $R^2$ ⟹ সম্পর্ক নেই | **FALSE** — non-linearity বা omitted variable দেখো |
+| ফাঁদ                                                                | সঠিক উত্তর                                                |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| "$x^2$ থাকলে linear model নয়"                                | **FALSE** — linear মানে $\beta$-তে linear           |
+| "$y=\exp(\dots)$ বিশ্লেষণ করা যায় না"               | **FALSE** — log নাও                                      |
+| "$\boldsymbol{X}$-এর মাত্রা $n\times k$"                    | **FALSE** — $n\times(k+1)$                                |
+| "$r=0$ মানে স্বাধীন"                                       | **FALSE** — শুধু সরলরৈখিক সম্পর্ক নেই |
+| "coefficient ধনাত্মক ⟹ correlation ধনাত্মক"              | **FALSE** (multiple regression-এ)                           |
+| "$R^2=r^2$ সবসময়"                                              | **FALSE** — শুধু simple regression                      |
+| "log coefficient = ১% পরিবর্তনে % পরিবর্তন"           | **FALSE** — শুধু log-log মডেলে                     |
+| "$\hat\beta_0$ = বয়স ০-তে মজুরি" ব্যাখ্যা করা | **বিচারবুদ্ধির ভুল** — extrapolation বলো  |
+| "শিক্ষা মজুরি**বাড়ায়** (causes)"              | **"associated with"** লিখো                               |
+| কম$R^2$ ⟹ সম্পর্ক নেই                                    | **FALSE** — non-linearity বা omitted variable দেখো    |

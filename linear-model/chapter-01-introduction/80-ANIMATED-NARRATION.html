@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chapter 1 — Animated Narration</title>
+<style>
+:root{
+  --teal-900:#085041; --teal-700:#0F6E56; --teal-500:#1D9E75; --teal-100:#E1F5EE;
+  --purple-900:#26215C; --purple-700:#3C3489; --purple-500:#534AB7; --purple-300:#7F77DD; --purple-100:#EEEDFE; --purple-200:#CECBF6;
+  --rust-900:#712B13; --rust-700:#993C1D; --rust-500:#D85A30; --rust-100:#FAECE7;
+  --amber-900:#633806; --amber-700:#854F0B; --amber-500:#EF9F27; --amber-100:#FAEEDA;
+  --n-900:#2C2C2A; --n-700:#444441; --n-500:#5F5E5A; --n-400:#888780; --n-300:#D3D1C7; --n-100:#F1EFE8;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:#ffffff; color:var(--n-900);
+  font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  display:flex; justify-content:center; padding:24px 14px 60px;
+}
+.app{ max-width:880px; width:100%; }
+.hdr{ text-align:center; margin-bottom:14px; }
+.hdr h1{ font-size:22px; margin:0 0 4px; color:var(--n-900); }
+.hdr p{ font-size:13px; color:var(--n-500); margin:0; }
+
+.stage{
+  position:relative; width:100%; height:420px;
+  background:var(--n-100); border-radius:14px; border:1px solid var(--n-300);
+  overflow:hidden;
+}
+.scene{
+  position:absolute; inset:0; padding:26px 30px;
+  display:none; flex-direction:column;
+  opacity:0; transition:opacity .5s ease;
+}
+.scene.active{ display:flex; opacity:1; }
+.scene h2{ font-size:18px; margin:0 0 4px; color:var(--purple-900); }
+.scene .sub{ font-size:12px; color:var(--n-500); margin:0 0 14px; }
+.scene .body{ flex:1; display:flex; align-items:center; justify-content:center; gap:22px; }
+
+.reveal{ opacity:0; transform:translateY(10px); transition:opacity .5s ease, transform .5s ease; }
+.reveal.show{ opacity:1; transform:translateY(0); }
+
+.card{ border-radius:10px; padding:14px 18px; font-size:13px; line-height:1.5; }
+.card b{ display:block; font-size:14px; margin-bottom:2px; }
+.box-teal{ background:var(--teal-100); border:1px solid var(--teal-700); color:var(--teal-900); }
+.box-purple{ background:var(--purple-100); border:1px solid var(--purple-500); color:var(--purple-900); }
+.box-rust{ background:var(--rust-100); border:1px solid var(--rust-700); color:var(--rust-900); }
+.box-amber{ background:var(--amber-100); border:1px solid var(--amber-700); color:var(--amber-900); }
+.box-neutral{ background:#fff; border:1px solid var(--n-300); color:var(--n-700); }
+
+.eq{ font-size:30px; font-weight:600; text-align:center; }
+.eq .f{ color:var(--teal-700); } .eq .e{ color:var(--rust-700); }
+
+.arrow{ font-size:22px; color:var(--n-400); }
+
+.col{ display:flex; flex-direction:column; gap:10px; align-items:center; }
+.row{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; justify-content:center; }
+
+table.tbl{ border-collapse:collapse; font-size:13px; }
+table.tbl th, table.tbl td{ border:1px solid var(--n-300); padding:6px 12px; text-align:left; }
+table.tbl th{ background:var(--n-100); }
+
+.check{ font-weight:700; }
+.check.ok{ color:var(--teal-700); }
+.check.no{ color:var(--rust-700); }
+
+.tree-node{ padding:8px 14px; border-radius:8px; font-size:12.5px; text-align:center; }
+.tree-line{ width:2px; height:16px; background:var(--n-400); margin:0 auto; }
+
+.badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:700; margin-right:6px; }
+
+/* controls */
+.controls{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:16px; flex-wrap:wrap; }
+button{
+  font-family:inherit; font-size:13px; border-radius:8px; border:1px solid var(--n-300);
+  background:#fff; color:var(--n-900); padding:8px 14px; cursor:pointer;
+}
+button.primary{ background:var(--purple-500); border-color:var(--purple-500); color:#fff; font-weight:600; }
+button:hover{ filter:brightness(0.96); }
+.dots{ display:flex; gap:6px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+.dot{ width:8px; height:8px; border-radius:50%; background:var(--n-300); cursor:pointer; }
+.dot.on{ background:var(--purple-500); }
+
+.caption{
+  margin-top:14px; background:var(--n-100); border:1px solid var(--n-300); border-radius:10px;
+  padding:12px 16px; font-size:13.5px; line-height:1.6; color:var(--n-700); min-height:60px;
+}
+.badge-scene{ font-size:11px; color:var(--n-500); margin-bottom:16px; text-align:center;}
+.note{ font-size:11.5px; color:var(--n-500); text-align:center; margin-top:10px; }
+select, input[type=range]{ font-family:inherit; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <h1>Chapter 1 — Introduction</h1>
+    <p>An animated, narrated walkthrough · RC Linear Models exam prep</p>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <!-- Scene 0 -->
+    <section class="scene" data-i="0">
+      <h2>Welcome</h2>
+      <p class="sub">Chapter 1 · Introduction — Fahrmeir, Kneib, Lang, Marx</p>
+      <div class="body">
+        <div class="col">
+          <div class="reveal card box-purple" style="max-width:520px; text-align:center;">
+            <b>What we'll cover</b>
+            The model equation · vocabulary · choosing a model class · what "linear" really means · looking at your data · correlation & R² · the log-interpretation table · notation & the p-trap · the three goals of regression.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 1 -->
+    <section class="scene" data-i="1">
+      <h2>The one sentence</h2>
+      <p class="sub">Everything in this course comes back to this</p>
+      <div class="body">
+        <div class="col">
+          <div class="reveal eq">y&nbsp;=&nbsp;<span class="f">f(x)</span>&nbsp;+&nbsp;<span class="e">ε</span></div>
+          <div class="row reveal">
+            <div class="card box-teal"><b>f(x) — systematic</b>the signal, the structured part</div>
+            <div class="card box-rust"><b>ε — random</b>the noise, unexplained</div>
+          </div>
+          <div class="reveal card box-neutral" style="max-width:480px;text-align:center;">Regression separates signal from noise. Every later chapter is detail about the shape of f, or the assumptions on ε.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 2 -->
+    <section class="scene" data-i="2">
+      <h2>Vocabulary: response & covariate</h2>
+      <p class="sub">Two words you'll use in every sentence you write</p>
+      <div class="body">
+        <div class="row">
+          <div class="reveal card box-rust"><b>y — response</b>what we explain<br><span style="font-size:11px;">e.g. wage</span></div>
+          <div class="reveal arrow">➜</div>
+          <div class="reveal card box-teal"><b>x — covariate</b>what we explain it with<br><span style="font-size:11px;">e.g. age, education, health</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 3 -->
+    <section class="scene" data-i="3">
+      <h2>Error vs. residual · parameter vs. estimate</h2>
+      <p class="sub">Hat = from data = random. No hat = truth = unknown.</p>
+      <div class="body">
+        <table class="tbl reveal">
+          <tr><th>Term</th><th>Symbol</th><th>Meaning</th></tr>
+          <tr><td>Error</td><td>ε</td><td>true, unobservable</td></tr>
+          <tr><td>Residual</td><td>ε̂ = y − ŷ</td><td>observed, computable</td></tr>
+          <tr><td>Parameter</td><td>β</td><td>true, unknown, fixed</td></tr>
+          <tr><td>Estimate</td><td>β̂</td><td>from data, random</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- Scene 4 -->
+    <section class="scene" data-i="4">
+      <h2>Choosing the model class</h2>
+      <p class="sub">One question: what type is y?</p>
+      <div class="body">
+        <div class="col">
+          <div class="reveal tree-node box-purple">What type is the response, y?</div>
+          <div class="reveal tree-line"></div>
+          <div class="row">
+            <div class="col reveal"><div class="tree-node box-neutral">continuous</div><div class="tree-line"></div><div class="tree-node box-teal">Classical linear model (Ch 3)</div></div>
+            <div class="col reveal"><div class="tree-node box-neutral">binary 0/1</div><div class="tree-line"></div><div class="tree-node box-rust">Logit / Probit (Ch 2.3)</div></div>
+            <div class="col reveal"><div class="tree-node box-neutral">count</div><div class="tree-line"></div><div class="tree-node box-amber">Poisson (Ch 5)</div></div>
+            <div class="col reveal"><div class="tree-node box-neutral">ordered</div><div class="tree-line"></div><div class="tree-node box-neutral" style="border-color:var(--purple-500)">Ordinal (Ch 6)</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 5 -->
+    <section class="scene" data-i="5">
+      <h2>"Linear" means linear in β</h2>
+      <p class="sub">Not a straight line — a statement about how β enters the model</p>
+      <div class="body">
+        <div class="col" style="align-items:stretch; font-size:13px;">
+          <div class="reveal row"><span class="check ok">✅</span><span>y = β₀ + β₁x + β₂x² + ε &nbsp;(polynomial)</span></div>
+          <div class="reveal row"><span class="check ok">✅</span><span>y = β₀ + β₁ log(x) + ε</span></div>
+          <div class="reveal row"><span class="check ok">✅</span><span>y = β₀ + β₁x₁ + β₂x₂ + β₃x₁x₂ + ε &nbsp;(interaction)</span></div>
+          <div class="reveal row"><span class="check no">❌</span><span>y = β₀ + x^β₁ + ε &nbsp;(β inside a nonlinear function)</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 6 -->
+    <section class="scene" data-i="6">
+      <h2>Look before you model — one variable</h2>
+      <p class="sub">Histogram, boxplot, mean vs. median</p>
+      <div class="body">
+        <div class="row">
+          <svg width="220" height="150" viewBox="0 0 220 150">
+            <line x1="20" y1="130" x2="210" y2="130" stroke="var(--n-400)" stroke-width="1"/>
+            <g class="reveal" fill="var(--rust-500)">
+              <rect x="30" y="60" width="18" height="70"/>
+              <rect x="55" y="40" width="18" height="90"/>
+              <rect x="80" y="70" width="18" height="60"/>
+              <rect x="105" y="95" width="18" height="35"/>
+              <rect x="130" y="112" width="18" height="18"/>
+              <rect x="155" y="122" width="18" height="8"/>
+              <rect x="180" y="126" width="18" height="4"/>
+            </g>
+            <text x="115" y="145" text-anchor="middle" font-size="11" fill="var(--n-500)">right-skewed wage</text>
+          </svg>
+          <div class="reveal arrow">➜ log(y) ➜</div>
+          <svg width="220" height="150" viewBox="0 0 220 150">
+            <line x1="20" y1="130" x2="210" y2="130" stroke="var(--n-400)" stroke-width="1"/>
+            <g class="reveal" fill="var(--teal-500)">
+              <rect x="30" y="112" width="18" height="18"/>
+              <rect x="55" y="80" width="18" height="50"/>
+              <rect x="80" y="45" width="18" height="85"/>
+              <rect x="105" y="55" width="18" height="75"/>
+              <rect x="130" y="90" width="18" height="40"/>
+              <rect x="155" y="115" width="18" height="15"/>
+              <rect x="180" y="124" width="18" height="6"/>
+            </g>
+            <text x="115" y="145" text-anchor="middle" font-size="11" fill="var(--n-500)">roughly symmetric</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 7 -->
+    <section class="scene" data-i="7">
+      <h2>Look before you model — two variables</h2>
+      <p class="sub">The four scatter-plot questions (they return in Ch 3.4.4)</p>
+      <div class="body">
+        <div class="row">
+          <svg width="260" height="200" viewBox="0 0 260 200">
+            <rect x="20" y="10" width="220" height="150" fill="none" stroke="var(--n-300)"/>
+            <line x1="30" y1="150" x2="30" y2="140" stroke="var(--n-400)"/>
+            <line x1="30" y1="140" x2="220" y2="30" stroke="var(--n-300)" stroke-dasharray="3,3"/>
+            <g fill="var(--purple-300)">
+              <circle cx="45" cy="135" r="3"/><circle cx="65" cy="120" r="3"/><circle cx="85" cy="110" r="3"/>
+              <circle cx="105" cy="95" r="3"/><circle cx="125" cy="85" r="3"/><circle cx="145" cy="70" r="3"/>
+              <circle cx="165" cy="60" r="3"/><circle cx="185" cy="48" r="3"/><circle cx="205" cy="38" r="3"/>
+            </g>
+            <circle cx="100" cy="55" r="4" fill="var(--rust-500)"/>
+          </svg>
+          <div class="col reveal" style="font-size:12.5px; align-items:flex-start;">
+            <div><span class="badge box-purple">1</span>is there a trend?</div>
+            <div><span class="badge box-purple">2</span>is it straight?</div>
+            <div><span class="badge box-purple">3</span>constant spread?</div>
+            <div><span class="badge box-rust">4</span>any outliers?</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 8 -->
+    <section class="scene" data-i="8">
+      <h2>Correlation, and its three limits</h2>
+      <p class="sub">r ∈ [−1, 1]</p>
+      <div class="body">
+        <div class="col">
+          <div class="reveal eq" style="font-size:20px;">r<sub>xy</sub> = Cov(x,y) / (s<sub>x</sub>s<sub>y</sub>)</div>
+          <div class="row">
+            <div class="reveal card box-rust">only <b style="display:inline">linear</b> associations</div>
+            <div class="reveal card box-rust">never <b style="display:inline">causal</b></div>
+            <div class="reveal card box-rust">Anscombe's quartet</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 9 -->
+    <section class="scene" data-i="9">
+      <h2>R² in simple regression</h2>
+      <p class="sub">One covariate only — R² = r²</p>
+      <div class="body">
+        <div class="col">
+          <div class="reveal eq" style="font-size:24px;">R² = r²</div>
+          <div class="reveal card box-teal" style="text-align:center;">R² = 0.038 &nbsp;⟹&nbsp; r = √0.038 = 0.195<br><span style="font-size:11px;">sign taken from β̂₁ — the square root alone never supplies it</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 10 -->
+    <section class="scene" data-i="10">
+      <h2>The log-interpretation table</h2>
+      <p class="sub">Memorise this cold</p>
+      <div class="body">
+        <table class="tbl reveal">
+          <tr><th>Model</th><th>1-unit ↑ in x means…</th></tr>
+          <tr><td>y ~ x</td><td>β̂₁ units in y</td></tr>
+          <tr><td>log(y) ~ x</td><td>100β̂₁ % in y</td></tr>
+          <tr><td>y ~ log(x)</td><td>1% ↑ in x → β̂₁/100 units in y</td></tr>
+          <tr style="background:var(--amber-100)"><td>log(y) ~ log(x)</td><td>1% ↑ in x → β̂₁ % in y — <b>elasticity</b></td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- Scene 11 -->
+    <section class="scene" data-i="11">
+      <h2>Notation, and the p-trap</h2>
+      <p class="sub">y = Xβ + ε</p>
+      <div class="body">
+        <div class="col">
+          <div class="reveal eq" style="font-size:22px;">y = Xβ + ε</div>
+          <div class="reveal card box-neutral" style="font-size:12px;">X: n×p, one row per observation, one column per parameter — first column all 1s</div>
+          <div class="reveal card box-rust" style="text-align:center;"><b>⚠ the p-trap</b>Book: p = k+1 (incl. intercept) · Some papers: p = k (covariates only)<br><span style="font-size:11.5px;">Defence: count the β's yourself, incl. intercept — write n−k−1</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 12 -->
+    <section class="scene" data-i="12">
+      <h2>Three goals, three different jobs</h2>
+      <p class="sub">Say "associated with" — never "causes"</p>
+      <div class="body">
+        <div class="row">
+          <div class="reveal card box-teal"><b>Description</b>sign, size, significance of β<br><span style="font-size:11px;">→ Ch 3.3</span></div>
+          <div class="reveal card box-purple"><b>Prediction</b>ŷ on new data<br><span style="font-size:11px;">→ Ch 3.4</span></div>
+          <div class="reveal card box-rust"><b>Causality</b>needs near-random assignment<br><span style="font-size:11px;">→ beyond this course</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene 13 -->
+    <section class="scene" data-i="13">
+      <h2>Chapter 1 — done</h2>
+      <p class="sub">On to Chapter 2</p>
+      <div class="body">
+        <div class="reveal card box-purple" style="max-width:560px; text-align:center;">
+          <b>What you now know</b>
+          One equation · two vocab pairs · four model classes · one linearity rule · four scatter-plot questions · one correlation coefficient with three limits · one R² shortcut · one log table · one notation trap · three goals.
+          <br><br>Small slice of the exam — but the fastest points in the paper, if you know it cold.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="badge-scene" id="sceneLabel">Scene 1 / 14</div>
+  <div class="caption" id="caption">Press ▶ Play to begin the narrated walkthrough.</div>
+
+  <div class="controls">
+    <button id="prevBtn">⏮ Prev</button>
+    <button id="playBtn" class="primary">▶ Play</button>
+    <button id="nextBtn">Next ⏭</button>
+    <button id="restartBtn">⟲ Restart</button>
+    <select id="rateSelect" title="narration speed">
+      <option value="0.85">Slower</option>
+      <option value="1" selected>Normal</option>
+      <option value="1.15">Faster</option>
+    </select>
+  </div>
+  <div class="dots" id="dots"></div>
+  <p class="note">Narration uses your browser's built-in speech synthesis (English). Works best in Chrome, Edge, or Safari — click Play once to enable audio.</p>
+</div>
+
+<script>
+const narration = [
+"Welcome to Chapter 1 of your linear models exam prep. In the next few minutes, we'll walk through every core idea in the Introduction chapter — the vocabulary, the model equation, how to choose a model, and the exam traps hiding inside notation. Let's begin.",
+"Everything in this course comes back to one sentence: y equals f of x, plus epsilon. Response y is being explained by two parts — a systematic component, f of x, which is the signal, the structured relationship — and a random error, epsilon, which is the noise. Regression is just the art of separating signal from noise. Every technique in the rest of this book is a detail about the shape of f, or the assumptions we place on epsilon.",
+"Let's fix the vocabulary. y is the response — the thing we're trying to explain. x is the covariate — what we use to explain it. In the wage data you'll see throughout this course, wage is the response; age, education, and health are covariates.",
+"Two pairs of words get confused constantly, and they're worth a guaranteed mark if you keep them straight. Error, epsilon, is the true, unobservable noise — a fact about the world you'll never see directly. Residual, epsilon hat, is what you actually compute from your fitted model: observed minus fitted. The same relationship exists between beta, the true unknown parameter, and beta hat, your data-based estimate. The rule: a hat means it came from data, and it's random. No hat means it's the unknown truth, fixed forever.",
+"Before you write a single formula, ask one question: what type is the response? Continuous, roughly unbounded — you're in the classical linear model, chapter three. Binary, zero or one — that's a logit or probit model, chapter two point three, and it's guaranteed exam content. A count, like number of complaints — Poisson, chapter five. Ordered categories — ordinal regression, chapter six. Notice this decision is driven entirely by the response. The covariates never change which model family you're in — they only change how you build the design matrix.",
+"Here's a phrase that trips up almost everyone at least once: linear model does not mean a straight line. It means linear in beta, not linear in x. A polynomial, with x and x squared, is still a linear model — beta enters only by multiplication and addition. A model with an interaction term is still linear. But the moment beta itself sits inside a nonlinear function — say, x raised to the power beta one — that's no longer a linear model, and ordinary least squares doesn't apply.",
+"Before fitting anything, look at your data. For a single variable, check its histogram and boxplot, and compare the mean to the median. Wage, rent, and income are classic right-skewed variables — a long tail of high earners drags the mean above the median. When you see that shape, consider modeling the logarithm of y instead.",
+"For two variables together, make a scatter plot and ask four questions, in order. One: is there a trend? Two: is it straight, or curved? Three: is the spread constant, or does it fan out? Four: are there any outliers? Hold onto these four questions — they come back almost unchanged in chapter three point four, as residual diagnostic plots.",
+"The correlation coefficient, r, measures linear association, bounded between minus one and plus one. But respect its three limits. It only detects linear relationships — a strong curve can still show r near zero. It never implies causation, only association. And Anscombe's quartet proves that wildly different scatter plots can share identical correlation, mean, and variance — always look at the picture, not just the number.",
+"In simple regression, with just one covariate, R squared equals r squared exactly. So if you're given R squared equal to zero point zero three eight, the correlation is the square root, zero point one nine five — and don't forget, you have to supply the sign yourself, taken from the sign of beta one hat. This shortcut only works with one covariate; in multiple regression, R squared is a different quantity entirely.",
+"When a variable is logged, the interpretation of its coefficient changes completely, and this table is worth memorizing cold. Plain y on x: beta one is a units change. Log y on x: beta one times one hundred is a percentage change. y on log x: a one percent increase in x links to beta one over one hundred units of y. And log y on log x: a one percent increase in x links to beta one percent change in y — that's called an elasticity.",
+"Now the notation that carries through the rest of the course: y equals X beta plus epsilon, where X has one row per observation and one column per parameter, with the very first column being all ones, for the intercept. Here's a trap worth knowing before it costs you a mark: this book defines p as the total number of parameters, including the intercept. Some past exam papers instead use p for the number of covariates only, without the intercept. When in doubt, don't quote a bare symbol — count the betas yourself, including the intercept, and write n minus that count.",
+"Finally, remember that regression can serve three different goals, and they're not the same job. Description asks about the sign, size, and significance of a coefficient — that's chapter three point three. Prediction asks how well your model forecasts new data — that's chapter three point four. Causality asks whether x actually causes y, and that requires something close to random assignment, which is mostly beyond this course. Say associated with. Never say causes, unless you've earned that word.",
+"That's the whole of chapter one. One equation, two vocab pairs, four model classes, one linearity rule, four scatter-plot questions, one correlation coefficient with three limits, one R squared shortcut, one log table, one notation trap, and three goals. Chapter one is worth a small slice of the exam, but it's the fastest points in the paper if you know it cold. On to chapter two."
+];
+
+const scenes = Array.from(document.querySelectorAll('.scene'));
+const total = scenes.length;
+let current = 0;
+let playing = false;
+let voice = null;
+
+const dotsEl = document.getElementById('dots');
+scenes.forEach((_,i)=>{
+  const d = document.createElement('div');
+  d.className='dot'+(i===0?' on':'');
+  d.addEventListener('click', ()=>{ stopSpeech(); goTo(i); if(playing) speakCurrent(); });
+  dotsEl.appendChild(d);
+});
+const dots = Array.from(dotsEl.children);
+
+function revealScene(sceneEl){
+  const items = sceneEl.querySelectorAll('.reveal');
+  items.forEach(el=>el.classList.remove('show'));
+  items.forEach((el,idx)=>{
+    setTimeout(()=>el.classList.add('show'), 120 + idx*220);
+  });
+}
+
+function goTo(i){
+  current = Math.max(0, Math.min(total-1, i));
+  scenes.forEach((s,idx)=> s.classList.toggle('active', idx===current));
+  dots.forEach((d,idx)=> d.classList.toggle('on', idx===current));
+  document.getElementById('sceneLabel').textContent = `Scene ${current+1} / ${total}`;
+  document.getElementById('caption').textContent = narration[current];
+  revealScene(scenes[current]);
+}
+
+function pickVoice(){
+  const voices = speechSynthesis.getVoices();
+  voice = voices.find(v=>v.lang==='en-US' && /Google|Samantha|Natural/.test(v.name))
+       || voices.find(v=>v.lang && v.lang.startsWith('en'))
+       || voices[0] || null;
+}
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged = pickVoice;
+  pickVoice();
+}
+
+function speakCurrent(){
+  if(!('speechSynthesis' in window)){
+    document.getElementById('caption').textContent += ' (Speech synthesis not supported in this browser — reading captions instead.)';
+    return;
+  }
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(narration[current]);
+  if(voice) utter.voice = voice;
+  utter.rate = parseFloat(document.getElementById('rateSelect').value);
+  utter.pitch = 1;
+  utter.onend = ()=>{
+    if(playing && current < total-1){
+      goTo(current+1);
+      speakCurrent();
+    } else if(current === total-1){
+      playing = false;
+      document.getElementById('playBtn').textContent = '▶ Play';
+    }
+  };
+  speechSynthesis.speak(utter);
+}
+
+function stopSpeech(){
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+}
+
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  if(!playing){
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ Pause';
+    speakCurrent();
+  } else {
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ Play';
+    stopSpeech();
+  }
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  stopSpeech();
+  goTo(current+1);
+  if(playing) speakCurrent();
+});
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  stopSpeech();
+  goTo(current-1);
+  if(playing) speakCurrent();
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  stopSpeech();
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  goTo(0);
+});
+document.getElementById('rateSelect').addEventListener('change', ()=>{
+  if(playing){ stopSpeech(); speakCurrent(); }
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowRight'){ stopSpeech(); goTo(current+1); if(playing) speakCurrent(); }
+  if(e.key==='ArrowLeft'){ stopSpeech(); goTo(current-1); if(playing) speakCurrent(); }
+  if(e.key===' '){ e.preventDefault(); document.getElementById('playBtn').click(); }
+});
+
+goTo(0);
+</script>
+</body>
+</html>
