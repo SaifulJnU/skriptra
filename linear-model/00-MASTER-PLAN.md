@@ -45,7 +45,7 @@ linear-model/
 ├── chapter-01-introduction/
 ├── chapter-02-regression-models/
 ├── chapter-03-classical-linear-model/
-├── 99-exam-vault/                    ← formula sheet, question bank, drills
+├── 99-exam-vault/                    ← formula sheet, question bank, drills (not yet created — build this in Week 3, Days 15 & 20)
 ├── chatgpt-chat-outcomes.md          ← your earlier notes (archived)
 ├── liner-model-book.pdf
 ├── exercise-sheets/
