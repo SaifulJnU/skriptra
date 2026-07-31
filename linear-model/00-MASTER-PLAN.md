@@ -48,25 +48,32 @@ linear-model/
 ├── 99-exam-vault/                    ← formula sheet, question bank, drills (not yet created — build this in Week 3, Days 15 & 20)
 ├── chatgpt-chat-outcomes.md          ← your earlier notes (archived)
 ├── liner-model-book.pdf
-├── exercise-sheets/
-└── prev-year-questions/
+├── exercise-sheets/                  ← Sheets 1–5 (PDF)
+└── prev-year-questions/              ← 5 past papers (PDF)
 ```
 
-Every chapter folder has the same 12-file spine, so you always know where you are:
+Every chapter folder has the same numbered spine, so you always know where you are. The number tells you the *kind* of file, not the order you read it in:
 
 | File | Purpose | When to read it |
 |---|---|---|
-| `01…04-notes-*.md` | Subsection-by-subsection teaching notes | First pass, slowly |
+| `01…13-notes-*.md` | Subsection-by-subsection teaching notes | First pass, slowly |
 | `10-SUMMARY.md` | One-page compression of the whole chapter | Second pass; then daily |
 | `20-EXERCISES.md` | Problems in exam style | After first pass |
 | `21-SOLUTIONS.md` | Full worked solutions | Only after you've attempted |
+| `22-BOOK-EXAMPLES-AND-SHEETS.md` | Worked book examples + the sheet questions they map to | Alongside the notes |
 | `30-SUGGESTIONS.md` | How to study *this* chapter, what to skip | Before you start the chapter |
 | `31-TRICKS-AND-TIPS.md` | Shortcuts, mental arithmetic, exam speed | Week 2–3 |
 | `32-TRAPS.md` | The specific ways students lose marks here | Week 3, repeatedly |
+| `33-FORMULA-DECISION-GUIDE.md` | *Which* formula, given what the question hands you | Week 2–3, and in the last 48 hours |
 | `40-MIND-MAP.md` | The whole chapter as one tree | Whenever you feel lost |
 | `50-REAL-LIFE-ANALOGY.md` | Concrete intuition | When a formula feels arbitrary |
 | `51-PHILOSOPHY.md` | Why the subject is built this way | When you want it to *stick* |
 | `52-STORY-FOR-A-BABY.md` | The whole chapter explained to a 5-year-old | Final check: can you tell the story? |
+| `60-BANGLA-SUMMARY.md` | The chapter in Bangla | When the English is the bottleneck, not the maths |
+| `70…72-visual-*.html` | Three single-idea diagrams — open in a browser | With the matching notes file |
+| `80-ANIMATED-NARRATION.html` | The chapter as a click-through animation | End of the chapter, as a recap |
+
+Chapter 3 has no `80-ANIMATED-NARRATION.html` yet — use `40-MIND-MAP.md` for that recap instead.
 
 **The baby-story file is not a joke.** If you can tell the story without notes, you understand the chapter. If you can't, you have memorised formulas. Use it as your test.
 
