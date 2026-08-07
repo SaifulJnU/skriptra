@@ -61,6 +61,7 @@ Every chapter folder has the same numbered spine, so you always know where you a
 | `20-EXERCISES.md` | Problems in exam style | After first pass |
 | `21-SOLUTIONS.md` | Full worked solutions | Only after you've attempted |
 | `22-BOOK-EXAMPLES-AND-SHEETS.md` | Worked book examples + the sheet questions they map to | Alongside the notes |
+| `23-PAST-PAPER-QUESTIONS.md` | **Every question from all 5 past papers that belongs to this chapter, with full solutions** | After the chapter, and again in Week 3 |
 | `30-SUGGESTIONS.md` | How to study *this* chapter, what to skip | Before you start the chapter |
 | `31-TRICKS-AND-TIPS.md` | Shortcuts, mental arithmetic, exam speed | Week 2–3 |
 | `32-TRAPS.md` | The specific ways students lose marks here | Week 3, repeatedly |
