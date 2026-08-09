@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowUp, Database, FileText, Loader2, Sparkles, Square } from "lucide-react";
-import { api } from "@/lib/client";
+import { ArrowUp, Database, FileText, Loader2, Mic, Sparkles, Square } from "lucide-react";
+import { api, usingMocks } from "@/lib/client";
+import { useVoiceInput } from "@/lib/useVoiceInput";
 import type { AskEvent } from "@/lib/api";
 import type { Citation, QueryIntent, Question, Usage } from "@/types/api";
 import { Card, PageHeader } from "@/components/ui";
@@ -49,6 +50,13 @@ export default function Ask() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const busy = turns.some((t) => t.streaming);
+
+  // Dictation fills the composer rather than sending on its own — a
+  // mis-transcribed question should be correctable before it is asked.
+  const voice = useVoiceInput();
+  useEffect(() => {
+    if (voice.transcript) setInput(voice.transcript);
+  }, [voice.transcript]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -98,8 +106,19 @@ export default function Ask() {
     <div className="animate-in flex min-h-[calc(100vh-9rem)] flex-col">
       <PageHeader
         title="Ask"
-        subtitle="Ask in plain language. Every answer cites the paper and page it came from."
+        subtitle="Ask by voice or text. Every answer cites the paper and page it came from."
       />
+
+      {usingMocks && (
+        <div className="mb-6 rounded-[var(--radius-card)] border border-dashed px-4 py-3">
+          <p className="text-xs text-secondary">
+            <strong className="font-semibold">Mock data.</strong> No model and no document index
+            are connected yet — lookups and statistics are real queries over sample data, but
+            explanations come from a small set of prepared answers and will say so when a question
+            falls outside them.
+          </p>
+        </div>
+      )}
 
       <div className="flex-1 space-y-8">
         {turns.length === 0 && (
@@ -244,9 +263,28 @@ export default function Ask() {
                 }
               }}
               rows={1}
-              placeholder="Ask about this course…"
+              placeholder={voice.listening ? "Listening…" : "Ask about this course…"}
               className="max-h-40 flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] outline-none placeholder:text-tertiary"
             />
+
+            {voice.supported && (
+              <button
+                type="button"
+                onClick={() => (voice.listening ? voice.stop() : voice.start())}
+                disabled={busy}
+                aria-label={voice.listening ? "Stop dictation" : "Ask by voice"}
+                aria-pressed={voice.listening}
+                title={voice.listening ? "Stop dictation" : "Ask by voice"}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl transition disabled:opacity-30 ${
+                  voice.listening
+                    ? "bg-red-500 text-white"
+                    : "text-secondary hover:surface-sunken"
+                }`}
+              >
+                <Mic size={16} className={voice.listening ? "animate-pulse" : ""} />
+              </button>
+            )}
+
             {busy ? (
               <button
                 type="button"
@@ -268,6 +306,20 @@ export default function Ask() {
             )}
           </form>
         </div>
+
+        {(voice.error || voice.listening) && (
+          <p
+            className={`mt-2 px-2 text-xs ${voice.error ? "text-red-500" : "text-tertiary"}`}
+            role="status"
+          >
+            {voice.error ?? "Listening — speak your question, then press the mic again to stop."}
+          </p>
+        )}
+        {!voice.supported && (
+          <p className="mt-2 px-2 text-xs text-tertiary">
+            Voice input needs Chrome, Edge or Safari.
+          </p>
+        )}
       </div>
     </div>
   );
