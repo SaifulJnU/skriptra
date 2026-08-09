@@ -6,6 +6,30 @@ A self-hostable, provider-agnostic **exam intelligence platform**. Upload a cour
 
 It runs entirely on your own machine with a local model, or against any hosted provider. That choice is a single environment variable.
 
+`Go 1.26` · `React 18 + TypeScript` · `PostgreSQL 17 + pgvector` · `NATS` · `Docker`
+
+> **Status — in active development.** The API, retrieval and interface are built and running against a real database. The document ingestion pipeline is in progress, so the screenshots below use a seeded corpus.
+> **A hosted demo is coming.** Until then the whole stack runs locally with `docker compose up` — see [Running it locally](#running-it-locally).
+
+---
+
+## The product
+
+<p align="center">
+  <img src="docs/screenshots/questions.png" alt="Every Chapter 3 question across six years of past papers, filtered and exhaustive" width="100%">
+</p>
+
+<p align="center"><em>Chapter filtering — an exhaustive list, not a top-k sample.</em></p>
+
+| | |
+|:--:|:--:|
+| <img src="docs/screenshots/ask.png" alt="Asking a question by voice or text" width="100%"> | <img src="docs/screenshots/analytics.png" alt="Chapter frequency analytics computed from the question index" width="100%"> |
+| **Ask** — by voice or text, answered with citations | **Analytics** — computed in SQL, so the figures are exact |
+| <img src="docs/screenshots/dashboard.png" alt="Course dashboard showing indexed exams and questions" width="100%"> | <img src="docs/screenshots/course.png" alt="Course overview with chapter navigation and live ingestion status" width="100%"> |
+| **Dashboard** — courses, with live ingestion status | **Course** — chapters as the primary navigation |
+
+Screenshots are generated from the running application by [`dev/screenshots.ps1`](dev/screenshots.ps1), so they cannot quietly go stale.
+
 ---
 
 ## Why it exists
@@ -76,20 +100,41 @@ Full rationale — including why pgvector rather than a dedicated vector databas
 
 ## Running it locally
 
-Requires Docker and Node.js LTS.
+Requires Docker. Node is not needed on the host — the web service runs in a container.
 
 ```bash
 cp .env.example .env.local
 docker compose up
 ```
 
-That gives you the frontend, the Go API, workers, PostgreSQL with pgvector, and NATS. Add `--profile local-llm` to include Ollama and run the whole system with no external API calls and no API keys.
+That gives you the frontend on `:5173`, the Go API on `:8080`, workers, PostgreSQL with pgvector, and NATS. Add `--profile local-llm` to include Ollama and run the whole system with **no external API calls and no API keys** — nothing leaves the machine.
+
+To load the sample corpus used in the screenshots:
+
+```bash
+docker compose exec -T postgres psql -U skriptra -d skriptra < dev/seed.sql
+```
 
 ---
 
 ## Project status
 
-Early development. See [`PROGRESS.md`](PROGRESS.md) for the current state and the next step.
+| Area | State |
+|---|---|
+| API contract (`/api/v1`, frozen) | Done |
+| Schema and migrations | Done — verified on PostgreSQL 17 + pgvector |
+| Retrieval (hybrid, RRF, filtered) | Done — all four query intents verified against a live database |
+| Go API, query router, providers | Done |
+| Web interface | Done |
+| **Document ingestion pipeline** | **In progress** |
+| Evaluation harness | Planned |
+| Hosted demo, CI/CD | Planned |
+
+See [`PROGRESS.md`](PROGRESS.md) for detail and the current next step.
+
+## A note on exam papers
+
+Universities generally hold the rights to their exam papers. This repository contains **no exam content** — the sample corpus in `dev/seed.sql` is written for the purpose. Skriptra is built to be self-hosted precisely so a course's material stays on the institution's or the student's own infrastructure.
 
 ## License
 
