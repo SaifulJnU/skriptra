@@ -56,9 +56,24 @@ Once that flow works end to end, the product skeleton exists.
 | 5 | Go backend skeleton + provider interfaces | DONE |
 | 6 | docker-compose local stack | DONE |
 | 7 | React frontend against mock data | DONE — all six screens render, typecheck clean |
-| 8 | Go backend implementation | not started |
+| 8 | **Go API implementation** | **DONE** — all read endpoints + `/ask` + `/search`, serving real Postgres |
 | 9 | Ingestion pipeline (PDF -> questions -> chapters) | not started |
 | 10 | Eval harness | not started |
+
+### Backend, verified against a live database
+
+Started Postgres 17 + pgvector, applied the schema, seeded `dev/seed.sql` (12 exams, 72 questions), ran `cmd/api` and exercised it:
+
+- `GET /courses`, `/chapters`, `/exams`, `/questions`, `/analytics/chapter-frequency` all return correct real data.
+- `POST /ask` — "Give me all Chapter 3 questions from the last five years" routed to `enumerate` and returned **24** questions, versus 32 for all years. The year range was resolved from the natural-language phrase, not passed in.
+- `POST /ask` — "Which chapters are tested most often?" routed to `analyse` and answered from a SQL aggregate with no model in the path.
+- `POST /ask` — an `explain` question with Ollama stopped returned `503 provider_unavailable` rather than a fabricated answer.
+
+Run it yourself:
+
+```bash
+docker run -d --name skriptra-pg -e POSTGRES_USER=skriptra -e POSTGRES_PASSWORD=skriptra -e POSTGRES_DB=skriptra -p 55433:5432 pgvector/pgvector:pg17
+```
 
 ### Verified, not assumed
 
@@ -84,9 +99,17 @@ Then open http://localhost:5173. The app runs entirely on the mock adapter, so n
 
 ## Next step
 
-**Task 8 — implement the Go API against the frozen contract**, starting with the read endpoints the frontend already calls: `/courses`, `/courses/{id}/chapters`, `/courses/{id}/exams`, `/courses/{id}/questions`. The SQL for these already exists and is proven. When they return real data, set `VITE_USE_MOCKS=false` and the frontend switches over with no component changes.
+**Task 9 — the ingestion pipeline.** Everything downstream of it is built and proven, so this is now the only thing standing between the system and real documents:
 
-Do the ingestion pipeline (task 9) only after those read endpoints serve real rows.
+1. `POST /courses/{id}/documents` — accept an upload, content-hash it, write the row, publish `document.uploaded` to NATS.
+2. Worker: consume the job, extract text and page numbers via the `ingest.Chain` (register a `go-fitz` parser as the first implementation).
+3. Segment pages into questions — try rules first (`Aufgabe N` / `Question N` headings) and measure before reaching for anything cleverer.
+4. Classify each question against the chapter taxonomy; store confidence.
+5. Embed chunks and questions through the `Embedder` interface; write to `chunks` and `question_embeddings`.
+
+**Before starting, do the two-minute check:** open a real past paper and try to select the text. It selects → the Go path is correct. It does not → it is a scan, and the Python OCR adapter gets registered behind the existing `ingest.Chain` seam.
+
+Then task 10, the eval harness, which is the highest-value remaining item for interviews.
 
 ---
 
