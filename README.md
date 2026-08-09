@@ -1,4 +1,4 @@
-# Lernova
+# Skriptra
 
 **Intelligent Learning, Grounded in Knowledge.**
 
@@ -12,7 +12,7 @@ It runs entirely on your own machine with a local model, or against any hosted p
 
 At many German universities — including TU Dortmund — getting hold of past exam papers (*Altklausuren*) still means paying a small fee at the library, borrowing physical copies, and returning them. Students then have no way to ask the obvious questions: *which chapters actually get tested?* *Has this question appeared before?* *Show me every Chapter 3 question from the last five years.*
 
-Lernova answers those questions.
+Skriptra answers those questions.
 
 ---
 
@@ -20,9 +20,9 @@ Lernova answers those questions.
 
 Three things, and they are the engineering substance of the project:
 
-1. **Chapter resolution.** "Give me the Chapter 2 questions" is not a similarity search — nothing in an exam question says "Chapter 2". Lernova builds a chapter taxonomy from the course syllabus or textbook table of contents, classifies every extracted question against it at ingest time, and resolves chapter references in queries into **metadata filters**.
+1. **Chapter resolution.** "Give me the Chapter 2 questions" is not a similarity search — nothing in an exam question says "Chapter 2". Skriptra builds a chapter taxonomy from the course syllabus or textbook table of contents, classifies every extracted question against it at ingest time, and resolves chapter references in queries into **metadata filters**.
 
-2. **A query router.** "Give me *all* Chapter 3 questions" is an aggregation query, and top-k retrieval structurally cannot answer it. Lernova routes enumerate/aggregate queries to SQL over the extracted `questions` table, and explain/compare queries to hybrid vector retrieval — and combines both when a query needs it.
+2. **A query router.** "Give me *all* Chapter 3 questions" is an aggregation query, and top-k retrieval structurally cannot answer it. Skriptra routes enumerate/aggregate queries to SQL over the extracted `questions` table, and explain/compare queries to hybrid vector retrieval — and combines both when a query needs it.
 
 3. **An evaluation harness.** A golden dataset of real question/answer pairs, retrieval metrics (recall@k, MRR) and answer metrics (groundedness, citation accuracy), run in CI so a prompt or chunking change that regresses retrieval **fails the build**.
 
@@ -43,11 +43,17 @@ Three things, and they are the engineering substance of the project:
    + pgvector            |                   (interface)
                     Ingest workers               |
                          |                +------+------+
-                  Parser sidecar          |             |
-                  (Python/gRPC)          LLM        Embeddings
-                  OCR + layout            |             |
+                  PDF text + page map      |             |
+                  extraction (go-fitz)    LLM        Embeddings
+                                           |             |
                                      local/hosted  local/hosted
 ```
+
+**The entire backend is Go.** Embeddings and generation are HTTP calls, vector
+search is SQL, and PDF text extraction with page coordinates is a Go library —
+so no Python is needed. OCR and layout analysis are the only components that
+genuinely require it, and both are phase 2. See
+[`docs/00-DESIGN.md`](docs/00-DESIGN.md) §4.2.
 
 The application only ever depends on the `LLM`, `Embedder` and `VectorStore` interfaces. Configuration decides the implementation — there is no `if production` branching anywhere in the codebase.
 
@@ -55,8 +61,8 @@ The application only ever depends on the `LLM`, `Embedder` and `VectorStore` int
 
 | Layer | Choice |
 |---|---|
-| API / orchestration | Go (Gin, gRPC) |
-| Document processing | Python sidecar over gRPC (OCR, layout, embeddings) |
+| API / orchestration / workers | Go (Gin, gRPC) |
+| Document processing | Go (`go-fitz` — text with page coordinates) |
 | Storage / retrieval | PostgreSQL + pgvector (hybrid vector + keyword in one query) |
 | Messaging | NATS |
 | Cache | Redis |

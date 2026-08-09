@@ -1,7 +1,7 @@
 openapi: 3.1.0
 
 info:
-  title: Lernova API
+  title: Skriptra API
   version: 1.0.0
   description: |
     Exam intelligence platform API.
@@ -329,7 +329,7 @@ paths:
       summary: How often each chapter is tested
       description: |
         A pure SQL aggregate — the `analyse` intent never touches the LLM.
-        This is what makes Lernova more than a chatbot.
+        This is what makes Skriptra more than a chatbot.
       parameters:
         - name: yearFrom
           in: query

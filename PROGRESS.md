@@ -8,7 +8,7 @@ Last updated: 9 August 2026
 
 ## What this is
 
-**Lernova** — *Intelligent Learning, Grounded in Knowledge.*
+**Skriptra** — *Intelligent Learning, Grounded in Knowledge.*
 
 A self-hostable, provider-agnostic exam-intelligence platform. Students upload past exam papers, solutions and notes for a course; anyone in that course can then browse questions by chapter and year, find similar questions across years, and ask natural-language questions that are answered **with page-level citations**.
 
@@ -75,7 +75,7 @@ Once that flow works end to end, the product skeleton exists.
 Node is **not** installed on this machine and does not need to be — everything runs through Docker.
 
 ```bash
-docker run -d --name lernova-web -v D:\lernova\web:/app -w /app -p 5173:5173 -e CHOKIDAR_USEPOLLING=true node:22-alpine npx vite --host 0.0.0.0
+docker run -d --name skriptra-web -v D:\skriptra\web:/app -w /app -p 5173:5173 -e CHOKIDAR_USEPOLLING=true node:22-alpine npx vite --host 0.0.0.0
 ```
 
 Then open http://localhost:5173. The app runs entirely on the mock adapter, so no backend is required yet.
@@ -92,7 +92,7 @@ Do the ingestion pipeline (task 9) only after those read endpoints serve real ro
 
 ## Frontend architecture notes
 
-- **Mock layer is an adapter, not MSW.** `src/lib/api.ts` defines the `LernovaApi` interface plus a real HTTP implementation; `src/mocks/mockApi.ts` implements the same interface; `src/lib/client.ts` picks between them on `VITE_USE_MOCKS`. Same discipline as the Go provider interfaces — no service worker to configure, and components never know which one they got.
+- **Mock layer is an adapter, not MSW.** `src/lib/api.ts` defines the `SkriptraApi` interface plus a real HTTP implementation; `src/mocks/mockApi.ts` implements the same interface; `src/lib/client.ts` picks between them on `VITE_USE_MOCKS`. Same discipline as the Go provider interfaces — no service worker to configure, and components never know which one they got.
 - Types in `src/types/api.ts` mirror `api/openapi.yaml`. When the server lands, generate them from the spec instead of editing by hand.
 - Filters live in the URL (`?chapter=3&year=2025`) so filtered lists are shareable and survive refresh.
 - The mock corpus deliberately includes unclassified questions, low-confidence classifications and a mid-ingest document, so those states are designed for rather than retrofitted.
@@ -116,9 +116,9 @@ Upload lives as a modal/drawer, not a screen, with async ingest status polling v
 
 ## Decisions already locked (do not relitigate)
 
-- **Name:** Lernova.
+- **Name:** Skriptra.
 - **Vector store:** PostgreSQL + **pgvector**, behind a `VectorStore` interface. Qdrant adapter is phase 2, kept specifically to produce a benchmark comparison for interviews. Rationale in `docs/00-DESIGN.md` — at ~200k chunks the chapter filter *is* the optimisation, and filtered-HNSW recall (Qdrant's real advantage) does not bite until far larger corpora.
-- **Backend:** Go (Gin + gRPC). Python sidecar only for parsing/OCR/embeddings, over gRPC.
+- **Backend: Go only.** No Python. Embeddings and LLM calls are HTTP, retrieval is SQL, and PDF text + page coordinates come from `go-fitz`. Python is warranted solely for OCR and layout analysis, which are phase 2 — the extraction interface is a seam so adding a sidecar later is additive. Rationale in `docs/00-DESIGN.md` §4.2.
 - **Messaging:** NATS for ingestion jobs. **Cache:** Redis.
 - **Model independence:** `LLM` and `Embedder` interfaces; implementation chosen by env config only. No `if production` branching anywhere.
 - **API versioning:** everything under `/api/v1/` from day one.
@@ -127,7 +127,11 @@ Upload lives as a modal/drawer, not a screen, with async ingest status polling v
 
 ## Explicitly deferred (phase 2 — do not build these yet)
 
-Voice input · vision model for formula extraction · bounding-box citation highlighting (page-level is enough) · multi-user auth beyond a stub · the personal-notes/interview-prep corpus mode · Kubernetes · Flutter · Qdrant adapter.
+Python parser sidecar (OCR, layout, formulas → LaTeX) · vision model for formula extraction · bounding-box citation highlighting (page-level is enough) · multi-user auth beyond a stub · the personal-notes/interview-prep corpus mode · Kubernetes · Flutter · Qdrant adapter.
+
+**Voice input is built** (browser SpeechRecognition, `web/src/lib/useVoiceInput.ts`) — it needed no model and no backend, so it did not belong in the deferred list.
+
+**Before building ingestion:** open a real past paper and try to select the text. If it selects, the PDF is digital and Go-only extraction is correct. If nothing selects, it is a scan and OCR becomes necessary — at which point the Python sidecar gets built behind the existing seam.
 
 Every one is a real feature. Every one is also how this becomes a six-month project that never ships. The budget is ~50-60 working hours across six weeks.
 

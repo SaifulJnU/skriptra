@@ -42,7 +42,7 @@ export interface AskRequest {
   filters?: RetrievalFilters;
 }
 
-export interface LernovaApi {
+export interface SkriptraApi {
   me(): Promise<User>;
   providers(): Promise<Providers>;
 
@@ -109,7 +109,7 @@ function query(params: Record<string, unknown | undefined>): string {
   return s ? `?${s}` : "";
 }
 
-export const httpApi: LernovaApi = {
+export const httpApi: SkriptraApi = {
   me: () => request("/me"),
   providers: () => request("/providers"),
 

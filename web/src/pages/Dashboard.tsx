@@ -37,7 +37,7 @@ export default function Dashboard() {
       {courses.data && courses.data.data.length === 0 && (
         <EmptyState
           title="No courses yet"
-          description="Create a course and upload its past exam papers. Lernova will split them into questions and index them by chapter."
+          description="Create a course and upload its past exam papers. Skriptra will split them into questions and index them by chapter."
           action={<Button>Create a course</Button>}
         />
       )}

@@ -1,4 +1,4 @@
-module github.com/lernova/lernova/backend
+module github.com/skriptra/skriptra/backend
 
 go 1.26.5
 

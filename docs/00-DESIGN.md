@@ -1,8 +1,8 @@
-# Lernova — Design Document
+# Skriptra — Design Document
 
 Version 1 · 9 August 2026
 
-This document is the source of truth for *what* Lernova is and *why* it is built this way. `PROGRESS.md` tracks execution state; this file records decisions and their reasoning.
+This document is the source of truth for *what* Skriptra is and *why* it is built this way. `PROGRESS.md` tracks execution state; this file records decisions and their reasoning.
 
 ---
 
@@ -23,10 +23,10 @@ Three of those four are not retrieval questions at all. They are **structured qu
 
 ### 1.2 Product identity
 
-Lernova is not an "AI exam chatbot". It is an **exam intelligence platform** with three pillars:
+Skriptra is not an "AI exam chatbot". It is an **exam intelligence platform** with three pillars:
 
 ```
-                     LERNOVA
+                     SKRIPTRA
                         |
         +---------------+---------------+
         |               |               |
@@ -104,12 +104,15 @@ LOCAL (docker compose up)              PRODUCTION
   web                                    web (CDN)
   go-api                                 load balancer -> go-api (n replicas)
   worker                                 worker (n replicas)
-  parser (python/grpc)                   parser (n replicas)
   postgres + pgvector                    managed Postgres + pgvector
   nats                                   nats cluster
   redis                                  managed Redis
   ollama (optional profile)              hosted provider
 ```
+
+Parsing runs inside the worker rather than as its own service (§4.2). The
+extraction interface is defined so it can be split out later without touching
+callers.
 
 ### 3.2 Provider independence
 
@@ -149,7 +152,7 @@ upload -> object store -> NATS: document.uploaded
                               |
                          ingest worker
                               |
-              parser sidecar (OCR, layout, page map)
+              text + page map extraction (go-fitz)
                               |
                     question segmentation
                               |
@@ -199,9 +202,29 @@ Hybrid, in a single SQL statement:
 
 **The trigger to revisit:** filtered result sets consistently exceeding ~100k rows, or adopting ColBERT-style late-interaction reranking. At that point it is an adapter swap, which is why the interface exists.
 
-### 4.2 Go core, Python sidecar
+### 4.2 Go only, for now
 
-Go for the API, orchestration, workers and streaming — concurrency and long-lived connections are its strengths, and it is the author's primary language. Python only where the ecosystem is genuinely irreplaceable: OCR, layout analysis, and embedding models. The boundary is gRPC. This is how production systems actually split, and it avoids the "Python-only, therefore bootcamp project" reading.
+**Decision: the MVP is written entirely in Go. No Python sidecar is built.**
+
+The reflex is that RAG means Python. Component by component, that turns out to be mostly false:
+
+| Component | Language needed |
+|---|---|
+| LLM calls | Go — it is an HTTP request |
+| **Embeddings** | Go — also an HTTP request to Ollama or a hosted endpoint |
+| Vector search, ranking, fusion | SQL |
+| Chunking, dedup, orchestration, streaming | Go |
+| Text + coordinates from digital PDFs | Go — `go-fitz` (MuPDF) returns text with page positions, which is exactly what citations need |
+| **OCR of scanned papers** | Python, realistically — modern OCR (Surya, PaddleOCR, docTR) has no Go equivalent |
+| **Layout analysis, formulas → LaTeX** | Python — effectively no Go ecosystem |
+
+Only the last two genuinely need Python, and both are already deferred to phase 2 (§5.2). German university exam PDFs from roughly 2020 onward are usually digitally generated rather than scanned, so the first corpus is expected not to need OCR at all.
+
+Being single-language buys real things at this budget: one container, one dependency tree, one build pipeline, one debugging story. It also produces a more distinctive result — nearly every RAG portfolio project is Python, so a production-shaped RAG system in Go is a differentiator, and it fits the backend-engineer identity this project is meant to prove rather than an AI-engineer pivot.
+
+**The gRPC parser boundary stays designed but unbuilt.** Document parsing sits behind an interface from the first commit, so adding a Python sidecar later is additive — a new implementation behind an existing seam — not a rewrite. Same discipline as the `VectorStore` interface in §4.1.
+
+**Trigger to build it:** the corpus contains scanned or photographed papers, or formulas must be extracted as LaTeX rather than as approximate text.
 
 ### 4.3 API versioning from day one
 

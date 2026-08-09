@@ -31,7 +31,7 @@ LIMIT @page_size OFFSET @page_offset;
 -- name: ChapterFrequency :many
 -- INTENT `analyse` — "which chapters are tested most often".
 -- A pure aggregate. The LLM is never in this path, so the numbers are exact and
--- the response is instant. This is what makes Lernova more than a chatbot.
+-- the response is instant. This is what makes Skriptra more than a chatbot.
 SELECT ch.id, ch.number, ch.title,
        count(q.id)                                              AS question_count,
        count(DISTINCT q.exam_id)                                AS exam_count,

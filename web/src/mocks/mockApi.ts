@@ -1,5 +1,5 @@
 /**
- * Mock implementation of `LernovaApi`.
+ * Mock implementation of `SkriptraApi`.
  *
  * The intent router below is a deliberately simplified version of the real one
  * that will live in Go. It is here so the UI is built against the *behaviour*
@@ -7,7 +7,7 @@
  * differently — rather than against a single generic "chat" response that would
  * hide the whole design.
  */
-import type { AskEvent, AskRequest, LernovaApi } from "@/lib/api";
+import type { AskEvent, AskRequest, SkriptraApi } from "@/lib/api";
 import type {
   Citation,
   Question,
@@ -149,7 +149,7 @@ function answerText(
   }
 }
 
-export const mockApi: LernovaApi = {
+export const mockApi: SkriptraApi = {
   async me() {
     await delay(80);
     return { id: "user-1", displayName: "Saiful", email: "saiful@example.com" };

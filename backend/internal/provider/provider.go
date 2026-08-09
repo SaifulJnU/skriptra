@@ -1,4 +1,4 @@
-// Package provider defines the boundary between Lernova and any model vendor.
+// Package provider defines the boundary between Skriptra and any model vendor.
 //
 // The application depends on these interfaces and nothing else. Which
 // implementation is constructed is decided once, at startup, from

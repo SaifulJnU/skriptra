@@ -1,4 +1,4 @@
--- Lernova initial schema
+-- Skriptra initial schema
 --
 -- Design notes worth reading before changing anything here:
 --

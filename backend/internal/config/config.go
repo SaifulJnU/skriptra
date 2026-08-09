@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lernova/lernova/backend/internal/provider"
+	"github.com/skriptra/skriptra/backend/internal/provider"
 )
 
 // Config is the fully resolved application configuration.

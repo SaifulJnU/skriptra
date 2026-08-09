@@ -136,7 +136,7 @@ export default function AppShell() {
             <span className="flex h-7 w-7 items-center justify-center rounded-lg accent-bg text-white">
               <BookOpen size={15} strokeWidth={2.2} />
             </span>
-            <span className="text-[15px] font-semibold tracking-[-0.01em]">Lernova</span>
+            <span className="text-[15px] font-semibold tracking-[-0.01em]">Skriptra</span>
           </Link>
 
           <div className="ml-auto flex items-center gap-2">

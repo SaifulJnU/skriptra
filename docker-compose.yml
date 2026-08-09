@@ -1,4 +1,4 @@
-# Lernova — local stack.
+# Skriptra — local stack.
 #
 # The service boundaries here are the same ones that run in production. Only the
 # infrastructure differs: managed Postgres instead of a container, a load
@@ -9,20 +9,20 @@
 #   docker compose --profile local-llm up    # + Ollama, fully offline, no API keys
 #   docker compose --profile tools up        # + pgAdmin
 
-name: lernova
+name: skriptra
 
 services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: lernova
-      POSTGRES_PASSWORD: lernova
-      POSTGRES_DB: lernova
+      POSTGRES_USER: skriptra
+      POSTGRES_PASSWORD: skriptra
+      POSTGRES_DB: skriptra
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lernova -d lernova"]
+      test: ["CMD-SHELL", "pg_isready -U skriptra -d skriptra"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -35,7 +35,7 @@ services:
       - ./migrations:/migrations:ro
     command:
       - "-path=/migrations"
-      - "-database=postgres://lernova:lernova@postgres:5432/lernova?sslmode=disable"
+      - "-database=postgres://skriptra:skriptra@postgres:5432/skriptra?sslmode=disable"
       - "up"
     restart: on-failure
 
@@ -89,15 +89,11 @@ services:
       - ./backend:/app
       - uploads:/data/uploads
 
-  # Python only where the ecosystem is genuinely irreplaceable: OCR, layout
-  # analysis, embeddings. The boundary is gRPC, not a shared database.
-  parser:
-    build:
-      context: ./services/parser
-    ports: ["50051:50051"]
-    volumes:
-      - ./services/parser:/app
-      - uploads:/data/uploads
+  # NOTE: there is no parser service. PDF text and page-coordinate extraction
+  # runs inside the worker via go-fitz — see docs/00-DESIGN.md §4.2. A Python
+  # sidecar is only warranted for OCR and layout analysis, which are phase 2.
+  # The extraction interface is already a seam, so adding it here later is
+  # additive rather than a rewrite.
 
   web:
     image: node:22-alpine
@@ -124,8 +120,8 @@ services:
     image: dpage/pgadmin4:latest
     profiles: [tools]
     environment:
-      PGADMIN_DEFAULT_EMAIL: dev@lernova.local
-      PGADMIN_DEFAULT_PASSWORD: lernova
+      PGADMIN_DEFAULT_EMAIL: dev@skriptra.local
+      PGADMIN_DEFAULT_PASSWORD: skriptra
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports: ["5050:80"]
 
