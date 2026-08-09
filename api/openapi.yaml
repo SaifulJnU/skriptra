@@ -1,0 +1,925 @@
+openapi: 3.1.0
+
+info:
+  title: Lernova API
+  version: 1.0.0
+  description: |
+    Exam intelligence platform API.
+
+    **This contract is frozen.** The web client and the Go server are both built
+    against it, and TypeScript types are generated from it — they are never
+    hand-written twice. Breaking changes go to `/api/v2`, they do not mutate v1.
+
+    ## Conventions
+
+    - All paths are under `/api/v1`.
+    - All IDs are UUIDs.
+    - All timestamps are RFC 3339 UTC.
+    - List endpoints are paginated and return a `PageMeta`.
+    - Errors always use the `Error` envelope; the HTTP status carries the class,
+      the `code` field carries the specific reason.
+    - Authorization is enforced server-side on every request. The client renders
+      permissions, it never decides them.
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: /api/v1
+    description: Same-origin deployment
+
+tags:
+  - name: courses
+  - name: chapters
+  - name: exams
+  - name: questions
+  - name: search
+  - name: ask
+  - name: documents
+  - name: analytics
+  - name: system
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ---------------------------------------------------------------- system --
+  /healthz:
+    get:
+      tags: [system]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+                  version: { type: string }
+
+  /me:
+    get:
+      tags: [system]
+      summary: Current user
+      responses:
+        "200":
+          description: The authenticated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /providers:
+    get:
+      tags: [system]
+      summary: Which model providers this deployment is configured with
+      description: |
+        Lets the UI show what is actually running (e.g. "Ollama · llama3.1")
+        without the frontend knowing anything about provider implementations.
+      responses:
+        "200":
+          description: Configured providers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [llm, embedding]
+                properties:
+                  llm: { $ref: "#/components/schemas/ProviderInfo" }
+                  embedding: { $ref: "#/components/schemas/ProviderInfo" }
+
+  # ---------------------------------------------------------------- courses --
+  /courses:
+    get:
+      tags: [courses]
+      summary: List the current user's courses
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Courses
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Course" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [courses]
+      summary: Create a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200, examples: ["Linear Models"] }
+                code: { type: string, maxLength: 50, examples: ["STAT-412"] }
+                institution: { type: string, maxLength: 200, examples: ["TU Dortmund"] }
+                language: { type: string, enum: [en, de], default: en }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+
+  /courses/{courseId}:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [courses]
+      summary: Get a course with its rollup counts
+      responses:
+        "200":
+          description: Course
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /courses/{courseId}/chapters:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [chapters]
+      summary: The course chapter taxonomy
+      description: |
+        Chapters are the primary navigation of the product and the filter that
+        makes "give me the Chapter 3 questions" answerable. They are derived at
+        course setup from a syllabus or textbook table of contents.
+      responses:
+        "200":
+          description: Chapters in syllabus order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Chapter" }
+
+  /courses/{courseId}/exams:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [exams]
+      summary: List exams, newest first
+      parameters:
+        - name: year
+          in: query
+          schema: { type: integer, minimum: 1990, maximum: 2100 }
+        - name: term
+          in: query
+          schema: { $ref: "#/components/schemas/Term" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Exams
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Exam" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+
+  /courses/{courseId}/questions:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [questions]
+      summary: List questions with filters
+      description: |
+        This is the `enumerate` path — exhaustive, ordered and paginated.
+        It is deliberately **not** vector search: a request for every Chapter 3
+        question must return every Chapter 3 question, which top-k retrieval
+        structurally cannot guarantee.
+      parameters:
+        - name: chapterId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: chapterNumber
+          in: query
+          description: Convenience filter so the UI can link by number.
+          schema: { type: integer, minimum: 1 }
+        - name: yearFrom
+          in: query
+          schema: { type: integer }
+        - name: yearTo
+          in: query
+          schema: { type: integer }
+        - name: term
+          in: query
+          schema: { $ref: "#/components/schemas/Term" }
+        - name: q
+          in: query
+          description: Optional full-text filter applied on top of the structured filters.
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, oldest, chapter]
+            default: newest
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Questions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Question" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+
+  /courses/{courseId}/documents:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [documents]
+      summary: List documents in a course
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/IngestStatus" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Document" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+    post:
+      tags: [documents]
+      summary: Upload a document
+      description: |
+        Accepts the file and returns immediately with status `queued`; ingestion
+        runs asynchronously via NATS. Poll `/documents/{id}/status` for progress.
+
+        Files are content-hashed on upload. Re-uploading a document that already
+        exists in the course returns `200` with the existing document rather than
+        creating a duplicate.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, kind]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                kind: { $ref: "#/components/schemas/DocumentKind" }
+                year: { type: integer }
+                term: { $ref: "#/components/schemas/Term" }
+      responses:
+        "200":
+          description: Document already existed (deduplicated by content hash)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "202":
+          description: Accepted and queued for ingestion
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMedia" }
+
+  /courses/{courseId}/analytics/chapter-frequency:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [analytics]
+      summary: How often each chapter is tested
+      description: |
+        A pure SQL aggregate — the `analyse` intent never touches the LLM.
+        This is what makes Lernova more than a chatbot.
+      parameters:
+        - name: yearFrom
+          in: query
+          schema: { type: integer }
+        - name: yearTo
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Frequency per chapter, syllabus order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, totalQuestions]
+                properties:
+                  totalQuestions: { type: integer }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChapterFrequency" }
+
+  # ------------------------------------------------------------------ exams --
+  /exams/{examId}:
+    parameters:
+      - name: examId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [exams]
+      summary: Get an exam with its questions
+      responses:
+        "200":
+          description: Exam
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExamDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # -------------------------------------------------------------- questions --
+  /questions/{questionId}:
+    parameters:
+      - $ref: "#/components/parameters/QuestionId"
+    get:
+      tags: [questions]
+      summary: Get a single question
+      responses:
+        "200":
+          description: Question
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuestionDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /questions/{questionId}/similar:
+    parameters:
+      - $ref: "#/components/parameters/QuestionId"
+    get:
+      tags: [questions]
+      summary: Find similar questions across years
+      description: |
+        The `similar` intent — vector k-NN over question embeddings, excluding
+        the question itself. This is the feature that turns a pile of PDFs into
+        a study tool.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+        - name: minScore
+          in: query
+          schema: { type: number, minimum: 0, maximum: 1, default: 0.5 }
+      responses:
+        "200":
+          description: Similar questions, most similar first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/SimilarQuestion" }
+
+  # ----------------------------------------------------------------- search --
+  /search:
+    post:
+      tags: [search]
+      summary: Hybrid search over a course corpus
+      description: |
+        Dense (pgvector cosine) + sparse (Postgres full-text) fused with
+        reciprocal rank fusion, with structured filters applied as WHERE clauses
+        rather than post-filtering. Returns passages, not an answer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, query]
+              properties:
+                courseId: { type: string, format: uuid }
+                query: { type: string, minLength: 1 }
+                filters: { $ref: "#/components/schemas/RetrievalFilters" }
+                limit: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        "200":
+          description: Ranked passages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/SearchHit" }
+
+  # -------------------------------------------------------------------- ask --
+  /ask:
+    post:
+      tags: [ask]
+      summary: Ask a natural-language question about a course
+      description: |
+        Routes the query by intent before doing any work:
+
+        | Intent | Path |
+        |---|---|
+        | `enumerate` | SQL over `questions` — exhaustive |
+        | `explain`   | Hybrid retrieval, then the LLM, with citations |
+        | `similar`   | Vector k-NN |
+        | `analyse`   | SQL aggregate, no LLM |
+        | `hybrid`    | enumerate to select, then explain |
+
+        Set `stream: true` to receive `text/event-stream` instead of JSON.
+
+        **SSE event sequence:** `intent` (once, immediately — lets the UI show
+        what it decided) → `sources` (once, before generation, so citations can
+        render while tokens stream) → `token` (many) → `done` (once, with usage)
+        or `error`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, question]
+              properties:
+                courseId: { type: string, format: uuid }
+                question: { type: string, minLength: 1, maxLength: 4000 }
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: Omit to start a new conversation.
+                filters: { $ref: "#/components/schemas/RetrievalFilters" }
+                stream: { type: boolean, default: false }
+      responses:
+        "200":
+          description: |
+            An answer. `application/json` when `stream` is false,
+            `text/event-stream` when true.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Answer" }
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Newline-delimited SSE frames.
+
+                  ```
+                  event: intent
+                  data: {"intent":"explain"}
+
+                  event: sources
+                  data: {"sources":[{...}]}
+
+                  event: token
+                  data: {"text":"Maximum "}
+
+                  event: done
+                  data: {"conversationId":"...","messageId":"...","usage":{...}}
+                  ```
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "503":
+          description: The configured model provider is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  # -------------------------------------------------------------- documents --
+  /documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [documents]
+      summary: Get document metadata
+      responses:
+        "200":
+          description: Document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [documents]
+      summary: Delete a document and everything derived from it
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{documentId}/status:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [documents]
+      summary: Ingestion progress
+      description: Polled by the upload UI until status is `indexed` or `failed`.
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentStatus" }
+
+  /documents/{documentId}/file:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [documents]
+      summary: Stream the original PDF
+      description: |
+        Supports range requests so the viewer can jump straight to a cited page.
+        Citations carry a page number; the client appends `#page=N`.
+      responses:
+        "200":
+          description: The file
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CourseId:
+      name: courseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    QuestionId:
+      name: questionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated but not permitted
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such resource
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationFailed:
+      description: The request body failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    PayloadTooLarge:
+      description: File exceeds the configured limit
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    UnsupportedMedia:
+      description: Unsupported file type
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable reason.
+              examples: [not_found, validation_failed, provider_unavailable]
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  issue: { type: string }
+            requestId: { type: string }
+
+    PageMeta:
+      type: object
+      required: [page, pageSize, total, totalPages]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+
+    Term:
+      type: string
+      enum: [summer, winter]
+
+    DocumentKind:
+      type: string
+      enum: [exam, solution, notes, textbook, syllabus]
+
+    IngestStatus:
+      type: string
+      enum: [queued, parsing, segmenting, classifying, embedding, indexed, failed]
+
+    User:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: string, format: email }
+
+    ProviderInfo:
+      type: object
+      required: [provider, model]
+      properties:
+        provider: { type: string, examples: [ollama, openai-compatible, anthropic, gemini] }
+        model: { type: string, examples: ["llama3.1:8b"] }
+        local: { type: boolean, description: True when inference never leaves this machine. }
+        dimensions: { type: integer, description: Embedding providers only. }
+
+    Course:
+      type: object
+      required: [id, name, examCount, questionCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        institution: { type: string }
+        language: { type: string, enum: [en, de] }
+        examCount: { type: integer }
+        questionCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+
+    CourseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            chapterCount: { type: integer }
+            documentCount: { type: integer }
+            yearRange:
+              type: object
+              properties:
+                from: { type: integer }
+                to: { type: integer }
+
+    Chapter:
+      type: object
+      required: [id, number, title]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, examples: [3] }
+        title: { type: string, examples: ["Maximum Likelihood"] }
+        topics:
+          type: array
+          items: { type: string }
+          description: Keywords used to seed question classification.
+        questionCount: { type: integer }
+
+    Exam:
+      type: object
+      required: [id, year, term, questionCount]
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        year: { type: integer, examples: [2025] }
+        term: { $ref: "#/components/schemas/Term" }
+        title: { type: string, examples: ["2025 — Summer"] }
+        documentId: { type: string, format: uuid }
+        hasSolutions: { type: boolean }
+        questionCount: { type: integer }
+
+    ExamDetail:
+      allOf:
+        - $ref: "#/components/schemas/Exam"
+        - type: object
+          properties:
+            questions:
+              type: array
+              items: { $ref: "#/components/schemas/Question" }
+
+    Question:
+      type: object
+      required: [id, number, text, sourcePage]
+      properties:
+        id: { type: string, format: uuid }
+        examId: { type: string, format: uuid }
+        number: { type: string, description: As printed, e.g. "4" or "4b". , examples: ["4"] }
+        text: { type: string }
+        marks: { type: number }
+        sourcePage: { type: integer, description: 1-indexed page in the source PDF. }
+        chapter: { $ref: "#/components/schemas/ChapterRef" }
+        topic: { type: string, examples: ["MLE"] }
+        year: { type: integer }
+        term: { $ref: "#/components/schemas/Term" }
+        hasSolution: { type: boolean }
+
+    ChapterRef:
+      type: object
+      description: |
+        Nullable — a question may not be confidently classifiable. `confidence`
+        is exposed so the UI can flag low-confidence assignments for correction
+        rather than silently presenting a guess as fact.
+      required: [id, number, title]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer }
+        title: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+
+    QuestionDetail:
+      allOf:
+        - $ref: "#/components/schemas/Question"
+        - type: object
+          properties:
+            documentId: { type: string, format: uuid }
+            solutionText: { type: string }
+            solutionSourcePage: { type: integer }
+
+    SimilarQuestion:
+      type: object
+      required: [question, score]
+      properties:
+        question: { $ref: "#/components/schemas/Question" }
+        score: { type: number, minimum: 0, maximum: 1 }
+
+    RetrievalFilters:
+      type: object
+      properties:
+        chapterIds:
+          type: array
+          items: { type: string, format: uuid }
+        chapterNumbers:
+          type: array
+          items: { type: integer }
+        yearFrom: { type: integer }
+        yearTo: { type: integer }
+        documentKinds:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentKind" }
+        preferOwnDocuments:
+          type: boolean
+          default: false
+          description: |
+            Applies source-priority weighting so the user's own uploads outrank
+            shared material when both match.
+
+    SearchHit:
+      type: object
+      required: [chunkId, text, score, citation]
+      properties:
+        chunkId: { type: string, format: uuid }
+        text: { type: string }
+        score: { type: number }
+        denseScore: { type: number }
+        sparseScore: { type: number }
+        citation: { $ref: "#/components/schemas/Citation" }
+
+    Citation:
+      type: object
+      required: [documentId, documentTitle, page]
+      properties:
+        documentId: { type: string, format: uuid }
+        documentTitle: { type: string, examples: ["2025 Summer Exam"] }
+        documentKind: { $ref: "#/components/schemas/DocumentKind" }
+        page: { type: integer, description: 1-indexed. }
+        questionId: { type: string, format: uuid }
+        questionNumber: { type: string, examples: ["4"] }
+        label:
+          type: string
+          description: Pre-rendered display string.
+          examples: ["2025 Summer Exam · Q4 · Page 3"]
+
+    Answer:
+      type: object
+      required: [conversationId, messageId, intent, answer, sources]
+      properties:
+        conversationId: { type: string, format: uuid }
+        messageId: { type: string, format: uuid }
+        intent:
+          type: string
+          enum: [enumerate, explain, similar, analyse, hybrid]
+        answer: { type: string, description: Markdown. }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/Citation" }
+        questions:
+          type: array
+          description: Populated for `enumerate` and `hybrid` intents.
+          items: { $ref: "#/components/schemas/Question" }
+        usage: { $ref: "#/components/schemas/Usage" }
+
+    Usage:
+      type: object
+      properties:
+        promptTokens: { type: integer }
+        completionTokens: { type: integer }
+        retrievedChunks: { type: integer }
+        latencyMs: { type: integer }
+        provider: { type: string }
+        model: { type: string }
+
+    Document:
+      type: object
+      required: [id, filename, kind, status]
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        filename: { type: string }
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        status: { $ref: "#/components/schemas/IngestStatus" }
+        year: { type: integer }
+        term: { $ref: "#/components/schemas/Term" }
+        pageCount: { type: integer }
+        sizeBytes: { type: integer }
+        contentHash: { type: string, description: SHA-256, used for deduplication. }
+        uploadedAt: { type: string, format: date-time }
+
+    DocumentStatus:
+      type: object
+      required: [documentId, status, progress]
+      properties:
+        documentId: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/IngestStatus" }
+        progress: { type: number, minimum: 0, maximum: 1 }
+        stageDetail: { type: string, examples: ["classifying question 12 of 31"] }
+        questionsExtracted: { type: integer }
+        error: { type: string }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+
+    ChapterFrequency:
+      type: object
+      required: [chapter, questionCount, share]
+      properties:
+        chapter: { $ref: "#/components/schemas/ChapterRef" }
+        questionCount: { type: integer }
+        share: { type: number, minimum: 0, maximum: 1 }
+        examCount: { type: integer, description: How many distinct exams tested it. }
+        byYear:
+          type: array
+          items:
+            type: object
+            properties:
+              year: { type: integer }
+              questionCount: { type: integer }

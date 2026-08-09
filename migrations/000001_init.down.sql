@@ -1,0 +1,22 @@
+BEGIN;
+
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS conversations;
+DROP TABLE IF EXISTS question_embeddings;
+DROP TABLE IF EXISTS chunks;
+DROP TABLE IF EXISTS questions;
+DROP TABLE IF EXISTS exams;
+DROP TABLE IF EXISTS ingest_jobs;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS chapters;
+DROP TABLE IF EXISTS course_members;
+DROP TABLE IF EXISTS courses;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS course_role;
+DROP TYPE IF EXISTS query_intent;
+DROP TYPE IF EXISTS ingest_status;
+DROP TYPE IF EXISTS document_kind;
+DROP TYPE IF EXISTS term;
+
+COMMIT;
