@@ -27,10 +27,13 @@ venv/
 /uploads/
 /models/
 
-# Exam papers are the university's copyright, not ours. Never commit a corpus —
-# the product is designed so the corpus stays on the operator's own machine.
+# Exam papers are the university's copyright, not ours. Never commit a corpus.
+# The product is designed so the corpus stays on the operator's own machine.
 *.pdf
 !docs/**/*.pdf
+# Exception: a synthetic exam written for this repository, used to test the
+# parser against a genuine PDF rather than a hand-built fixture.
+!backend/internal/ingest/testdata/*.pdf
 
 # tooling
 .idea/

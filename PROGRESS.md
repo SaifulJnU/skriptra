@@ -57,8 +57,34 @@ Once that flow works end to end, the product skeleton exists.
 | 6 | docker-compose local stack | DONE |
 | 7 | React frontend against mock data | DONE — all six screens render, typecheck clean |
 | 8 | **Go API implementation** | **DONE** — all read endpoints + `/ask` + `/search`, serving real Postgres |
-| 9 | Ingestion pipeline (PDF -> questions -> chapters) | not started |
-| 10 | Eval harness | not started |
+| 9 | **Ingestion pipeline** | **Built.** Parse, segment, classify verified on a real PDF. Full run through embeddings not yet executed. |
+| 10 | **Eval harness** | **Built.** 16 golden cases, metrics, regression gate. Baseline not yet recorded. |
+| 11 | CI workflow | Built. Backend, migrations up/down/up, frontend. Eval job written but commented out. |
+
+### What is verified, and what is not
+
+Verified by execution:
+
+- Parse, segment and classify run correctly against `testdata/sample_exam.pdf`, a genuine rendered PDF. Correct numbering, marks, page tracking, heading stripping, and the Gauss-Markov question lands in chapter 2.
+- 21 Go tests pass across ingest, router and parser selection.
+- All read endpoints, `/ask` routing and analytics against a live seeded database.
+
+**Not yet executed:** a full upload through the worker to indexed questions. That path needs an embedding model, and the Ollama image was still downloading when the session ended. Everything it depends on is individually tested; the wiring between them is not.
+
+To finish that verification:
+
+```bash
+docker run -d --name skriptra-ollama -p 11434:11434 ollama/ollama
+docker exec skriptra-ollama ollama pull nomic-embed-text
+```
+
+`nomic-embed-text` is 768-dimensional, which matches the schema. Then start `cmd/worker`, POST the sample PDF to `/api/v1/courses/{id}/documents`, and poll `/documents/{id}/status` until `indexed`.
+
+Once that works, record the eval baseline:
+
+```bash
+cd backend && go run ./cmd/eval -update
+```
 
 ### Backend, verified against a live database
 
