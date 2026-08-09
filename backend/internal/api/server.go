@@ -6,6 +6,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -18,16 +19,23 @@ import (
 	"github.com/skriptra/skriptra/backend/internal/provider"
 )
 
+// Publisher is the queue capability the API needs. Declared here rather than
+// taking a concrete *queue.Queue so uploads can be tested without NATS.
+type Publisher interface {
+	PublishIngest(ctx context.Context, documentID, courseID uuid.UUID, filename, storageKey string) error
+}
+
 type Server struct {
 	cfg      *config.Config
 	store    *db.Store
 	llm      provider.LLM
 	embedder provider.Embedder
+	queue    Publisher
 	log      *slog.Logger
 }
 
-func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder, log: log}
+func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, q Publisher, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder, queue: q, log: log}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -52,6 +60,7 @@ func (s *Server) Routes() http.Handler {
 		v1.GET("/courses/:courseId/exams", s.listExams)
 		v1.GET("/courses/:courseId/questions", s.listQuestions)
 		v1.GET("/courses/:courseId/documents", s.listDocuments)
+		v1.POST("/courses/:courseId/documents", s.uploadDocument)
 		v1.GET("/courses/:courseId/analytics/chapter-frequency", s.chapterFrequency)
 
 		v1.GET("/exams/:examId", s.getExam)

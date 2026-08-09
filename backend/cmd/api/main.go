@@ -15,6 +15,7 @@ import (
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
 	"github.com/skriptra/skriptra/backend/internal/provider"
+	"github.com/skriptra/skriptra/backend/internal/queue"
 
 	// Adapters register themselves in init(). Adding a provider means adding an
 	// import here, never editing a switch statement in the application.
@@ -63,6 +64,12 @@ func run() error {
 		return err
 	}
 
+	q, err := queue.Connect(ctx, cfg.NATSURL)
+	if err != nil {
+		return err
+	}
+	defer q.Close()
+
 	log.Info("providers configured",
 		"llm", cfg.LLM.Provider, "llm_model", cfg.LLM.Model,
 		"embedding", cfg.Embedding.Provider, "embedding_model", cfg.Embedding.Model,
@@ -70,7 +77,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(cfg, store, llm, embedder, log).Routes(),
+		Handler:           api.New(cfg, store, llm, embedder, q, log).Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 		// No WriteTimeout: /ask streams, and a write deadline would cut a long
 		// local generation off mid-answer. Cancellation is the request context.
