@@ -222,9 +222,18 @@ Only the last two genuinely need Python, and both are already deferred to phase 
 
 Being single-language buys real things at this budget: one container, one dependency tree, one build pipeline, one debugging story. It also produces a more distinctive result — nearly every RAG portfolio project is Python, so a production-shaped RAG system in Go is a differentiator, and it fits the backend-engineer identity this project is meant to prove rather than an AI-engineer pivot.
 
-**The gRPC parser boundary stays designed but unbuilt.** Document parsing sits behind an interface from the first commit, so adding a Python sidecar later is additive — a new implementation behind an existing seam — not a rewrite. Same discipline as the `VectorStore` interface in §4.1.
+**The parser boundary is built; only the Python implementation is not.** `backend/internal/ingest` defines `DocumentParser` plus a `Chain` that selects an implementation **per document**, not per deployment:
 
-**Trigger to build it:** the corpus contains scanned or photographed papers, or formulas must be extracted as LaTeX rather than as approximate text.
+- Each parser declares `Capabilities` — text layer, OCR, layout, formulas, and whether it runs in-process.
+- A cheap `Probe` of the first pages decides what the document actually requires.
+- The Chain picks the cheapest capable parser: a digital PDF takes the in-process Go path and never pays for a sidecar; a scan routes to whatever can read it.
+- With no OCR parser registered, a scan fails with `ErrNoCapableParser` and a message naming the reason — an actionable deployment gap, not a silent empty extraction.
+
+So the answer to "Go or Python?" is **both, resolved per document at runtime**. Adding Python means writing one adapter and registering it; nothing in the ingestion pipeline changes, because nothing in it knows which implementation ran. Selection behaviour is covered by tests in `parser_test.go`.
+
+This is the same discipline as `VectorStore` (§4.1) and the provider interfaces (§3.2): polyglot **by necessity, not by default**. The cost of a second language — another toolchain, dependency tree, CI path and cross-language debugging story — is real, so it is paid only when a document demands it.
+
+**Trigger to build the Python adapter:** the corpus contains scanned or photographed papers, or formulas must be extracted as LaTeX rather than as approximate text.
 
 ### 4.3 API versioning from day one
 
