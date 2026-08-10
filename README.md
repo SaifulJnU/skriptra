@@ -8,7 +8,7 @@ It runs entirely on your own machine with a local model, or against any hosted p
 
 `Go 1.26` · `React 18 + TypeScript` · `PostgreSQL 17 + pgvector` · `NATS` · `Docker`
 
-> **Status: in active development.** The API, retrieval and interface are built and running against a real database. The document ingestion pipeline is in progress, so the screenshots below use a seeded corpus.
+> **Status: in active development.** The full loop works. A PDF uploads, is split into questions, classified by chapter, embedded and indexed, and is then retrievable by meaning with page-level citations. Screenshots below use a seeded corpus so they stay reproducible.
 > **A hosted demo is coming.** Until then the whole stack runs locally with `docker compose up`. See [Running it locally](#running-it-locally).
 
 ---
@@ -122,13 +122,15 @@ docker compose exec -T postgres psql -U skriptra -d skriptra < dev/seed.sql
 | Area | State |
 |---|---|
 | API contract (`/api/v1`, frozen) | Done |
-| Schema and migrations | Done, verified on PostgreSQL 17 + pgvector |
+| Schema and migrations | Done, verified on PostgreSQL 17 + pgvector, including rollback |
 | Retrieval (hybrid, RRF, filtered) | Done, all four query intents verified against a live database |
 | Go API, query router, providers | Done |
 | Web interface | Done |
-| **Document ingestion pipeline** | **In progress** |
-| Evaluation harness | Planned |
-| Hosted demo, CI/CD | Planned |
+| Document ingestion pipeline | Done, verified end to end: a PDF uploads, queues through NATS, and reaches `indexed` with questions extracted, classified and embedded |
+| Evaluation harness | Built. 16 golden cases, retrieval and refusal metrics, regression gate. Baseline not yet recorded |
+| CI | Build, vet and race tests, migrations applied up then down then up, frontend typecheck and build |
+| Chapter classification accuracy | Keyword path works. The LLM fallback for ambiguous questions is written but not yet measured |
+| Hosted demo | Planned |
 
 See [`PROGRESS.md`](PROGRESS.md) for detail and the current next step.
 
