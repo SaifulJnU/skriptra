@@ -1,11 +1,15 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/domain"
 )
 
@@ -174,13 +178,47 @@ func (s *Server) similarQuestions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": similar})
 }
 
+// chapterFrequency is cached because it is a full aggregate over every question
+// in a course, it is read on two screens, and it only changes when a document
+// finishes indexing. The worker drops the course scope at that point, so the
+// TTL is a backstop rather than the correctness mechanism.
 func (s *Server) chapterFrequency(c *gin.Context) {
 	id, ok := uuidParam(c, "courseId")
 	if !ok {
 		return
 	}
-	freq, err := s.store.ChapterFrequency(c, id, intQuery(c, "yearFrom"), intQuery(c, "yearTo"))
-	s.respond(c, err, freq)
+	yearFrom, yearTo := intQuery(c, "yearFrom"), intQuery(c, "yearTo")
+
+	// The year range is part of the key: two different ranges are two
+	// different aggregates, and sharing one entry would serve the wrong one.
+	variant := fmt.Sprintf("chapter-freq:%s:%s", intPtr(yearFrom), intPtr(yearTo))
+	key := cache.AnalyticsKey(id.String(), variant)
+
+	if raw, hit := s.cache.Get(c, key); hit {
+		var cached domain.ChapterFrequencyResponse
+		if err := json.Unmarshal(raw, &cached); err == nil {
+			c.JSON(http.StatusOK, cached)
+			return
+		}
+		// A stale encoding is treated as a miss rather than an error.
+	}
+
+	freq, err := s.store.ChapterFrequency(c, id, yearFrom, yearTo)
+	if err != nil {
+		s.respond(c, err, nil)
+		return
+	}
+	if raw, err := json.Marshal(freq); err == nil {
+		s.cache.Set(c, key, raw, 6*time.Hour)
+	}
+	c.JSON(http.StatusOK, freq)
+}
+
+func intPtr(v *int) string {
+	if v == nil {
+		return "all"
+	}
+	return strconv.Itoa(*v)
 }
 
 func (s *Server) listDocuments(c *gin.Context) {

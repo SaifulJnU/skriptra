@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
 	"github.com/skriptra/skriptra/backend/internal/ingest"
@@ -58,6 +59,14 @@ func run() error {
 		return err
 	}
 
+	cached, err := cache.Connect(ctx, cfg.RedisURL, log)
+	if err != nil {
+		return err
+	}
+	// Re-ingesting a document after a parser fix re-embeds mostly unchanged
+	// questions, which is exactly what this saves.
+	embedder = cache.NewEmbedder(embedder, cached)
+
 	q, err := queue.Connect(ctx, cfg.NATSURL)
 	if err != nil {
 		return err
@@ -83,11 +92,19 @@ func run() error {
 			return nil
 		}
 
-		return pipeline.Run(ctx, ingest.Job{
+		if err := pipeline.Run(ctx, ingest.Job{
 			DocumentID: job.DocumentID,
 			CourseID:   job.CourseID,
 			Filename:   job.Filename,
 			Content:    content,
-		})
+		}); err != nil {
+			return err
+		}
+
+		// New questions change every aggregate for this course, so the derived
+		// caches are dropped rather than left to expire. Stale analytics after
+		// an upload would be a visible, confusing wrong answer.
+		cached.DeletePrefix(ctx, cache.CourseScope(job.CourseID.String()))
+		return nil
 	})
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/skriptra/skriptra/backend/internal/api"
+	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
 	"github.com/skriptra/skriptra/backend/internal/provider"
@@ -64,6 +65,14 @@ func run() error {
 		return err
 	}
 
+	// Optional. With REDIS_URL unset this is a no-op and the application
+	// behaves identically, just without the savings.
+	cached, err := cache.Connect(ctx, cfg.RedisURL, log)
+	if err != nil {
+		return err
+	}
+	embedder = cache.NewEmbedder(embedder, cached)
+
 	q, err := queue.Connect(ctx, cfg.NATSURL)
 	if err != nil {
 		return err
@@ -73,11 +82,11 @@ func run() error {
 	log.Info("providers configured",
 		"llm", cfg.LLM.Provider, "llm_model", cfg.LLM.Model,
 		"embedding", cfg.Embedding.Provider, "embedding_model", cfg.Embedding.Model,
-		"local_inference", cfg.IsLocal())
+		"local_inference", cfg.IsLocal(), "cache", cached.Enabled())
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(cfg, store, llm, embedder, q, log).Routes(),
+		Handler:           api.New(cfg, store, llm, embedder, q, cached, log).Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 		// No WriteTimeout: /ask streams, and a write deadline would cut a long
 		// local generation off mid-answer. Cancellation is the request context.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
 	"github.com/skriptra/skriptra/backend/internal/provider"
@@ -31,11 +32,15 @@ type Server struct {
 	llm      provider.LLM
 	embedder provider.Embedder
 	queue    Publisher
+	cache    cache.Cache
 	log      *slog.Logger
 }
 
-func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, q Publisher, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder, queue: q, log: log}
+func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, q Publisher, c cache.Cache, log *slog.Logger) *Server {
+	if c == nil {
+		c = cache.NoOp{}
+	}
+	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder, queue: q, cache: c, log: log}
 }
 
 func (s *Server) Routes() http.Handler {
