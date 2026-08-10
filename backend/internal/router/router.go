@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/skriptra/skriptra/backend/internal/domain"
+	"github.com/skriptra/skriptra/backend/internal/ingest"
 )
 
 // Decision is the routing outcome plus anything extracted along the way.
@@ -33,6 +34,10 @@ type Decision struct {
 	ChapterNumber *int
 	YearFrom      *int
 	YearTo        *int
+	// QuestionType is the format the user asked for ("true/false questions"),
+	// empty when they named none. Filtering on a format the corpus does not
+	// contain must return nothing rather than silently widening the query.
+	QuestionType string
 	// Confidence is low when the rules did not match strongly; callers may use
 	// it to decide whether to consult the LLM classifier.
 	Confidence float64
@@ -77,6 +82,18 @@ func Route(question string, chapters []Chapter, currentYear int) Decision {
 
 	d.ChapterNumber = resolveChapter(q, chapters)
 	d.YearFrom, d.YearTo = resolveYears(q, currentYear)
+
+	if t := ingest.ParseQuestionType(q); t != ingest.TypeUnknown {
+		d.QuestionType = string(t)
+		// Naming a format is itself a request to list. "true/false questions
+		// from chapter 2" is an enumeration even though it contains no verb
+		// that the list patterns match.
+		if !reExplain.MatchString(q) {
+			d.Intent = domain.IntentEnumerate
+			d.Confidence = 0.85
+			return d
+		}
+	}
 
 	wantsList := reList.MatchString(q)
 	wantsExplanation := reExplain.MatchString(q)

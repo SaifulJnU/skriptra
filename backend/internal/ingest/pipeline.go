@@ -36,6 +36,7 @@ type StoredQuestion struct {
 	Confidence    *float64
 	Source        string
 	Topic         string
+	Type          QuestionType
 }
 
 type StoredChunk struct {
@@ -126,6 +127,9 @@ func (p *Pipeline) Run(ctx context.Context, job Job) error {
 			Number: q.Number, Ordinal: q.Ordinal, Text: q.Text,
 			Marks: q.Marks, SourcePage: q.SourcePage,
 			ChapterNumber: c.ChapterNumber, Source: c.Source, Topic: c.Topic,
+			// Format is independent of topic, so it is derived from the
+			// wording rather than from the chapter taxonomy.
+			Type: ClassifyType(q.Text),
 		}
 		if c.ChapterNumber != 0 {
 			conf := c.Confidence

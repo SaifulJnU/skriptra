@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/skriptra/skriptra/backend/internal/domain"
+	"github.com/skriptra/skriptra/backend/internal/ingest"
 	"github.com/skriptra/skriptra/backend/internal/provider"
 	"github.com/skriptra/skriptra/backend/internal/router"
 )
@@ -151,6 +152,10 @@ func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d ro
 		Page:          1,
 		PageSize:      100,
 	}
+	if d.QuestionType != "" {
+		qt := d.QuestionType
+		f.QuestionType = &qt
+	}
 	questions, total, err := s.store.ListQuestions(c, req.CourseID, f, nil)
 	if err != nil {
 		w.fail(err)
@@ -168,15 +173,41 @@ func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d ro
 		}
 	}
 
-	scope := ""
-	if d.ChapterNumber != nil {
-		scope = fmt.Sprintf(" in Chapter %d", *d.ChapterNumber)
+	// Every filter that was applied is named back to the user. Silently
+	// dropping one and answering a broader question is how "true/false
+	// questions from chapter 2" came back as all 22 chapter 2 questions.
+	var applied []string
+	if d.QuestionType != "" {
+		applied = append(applied, ingest.QuestionType(d.QuestionType).Label()+" questions")
 	}
+	if d.ChapterNumber != nil {
+		applied = append(applied, fmt.Sprintf("Chapter %d", *d.ChapterNumber))
+	}
+	if d.YearFrom != nil && d.YearTo != nil {
+		if *d.YearFrom == *d.YearTo {
+			applied = append(applied, fmt.Sprintf("%d", *d.YearFrom))
+		} else {
+			applied = append(applied, fmt.Sprintf("%d to %d", *d.YearFrom, *d.YearTo))
+		}
+	}
+	scope := ""
+	if len(applied) > 0 {
+		scope = " matching " + strings.Join(applied, ", ")
+	}
+
 	text := fmt.Sprintf(
 		"Found **%d question%s**%s across %d exam year%s.\n\nThey are listed below, newest first. This is an exhaustive result from the question index, not a sample.",
 		total, plural(total), scope, len(years), plural(len(years)))
+
 	if total == 0 {
-		text = "No questions match those filters." + scope
+		// Say what was searched for, so an empty result is informative rather
+		// than a dead end. A corpus with no true/false questions is a fact
+		// worth stating plainly.
+		text = fmt.Sprintf("**No questions found%s.**\n\nThe filters applied were: %s. Nothing in the indexed papers matches all of them.",
+			scope, strings.Join(applied, ", "))
+		if len(applied) == 0 {
+			text = "**No questions found.** Nothing has been indexed for this course yet."
+		}
 	}
 
 	w.event("sources", gin.H{"sources": sources, "questions": questions})
@@ -349,7 +380,7 @@ func citationFor(q domain.Question) domain.Citation {
 		Page:           q.SourcePage,
 		QuestionID:     &id,
 		QuestionNumber: q.Number,
-		Label:          fmt.Sprintf("%s · Q%s · Page %d", title, q.Number, q.SourcePage),
+		Label:          fmt.Sprintf("%s Â· Q%s Â· Page %d", title, q.Number, q.SourcePage),
 	}
 }
 

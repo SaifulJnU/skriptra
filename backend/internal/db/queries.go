@@ -155,7 +155,7 @@ const questionSelect = `
 	SELECT q.id, q.exam_id, q.number, q.text, q.marks, q.source_page,
 	       ch.id, ch.number, ch.title, q.chapter_confidence,
 	       coalesce(q.topic, ''), e.year, e.term,
-	       (q.solution_text IS NOT NULL)
+	       (q.solution_text IS NOT NULL), q.question_type::text
 	FROM questions q
 	LEFT JOIN exams    e  ON e.id  = q.exam_id
 	LEFT JOIN chapters ch ON ch.id = q.chapter_id`
@@ -172,7 +172,8 @@ func scanQuestions(rows pgx.Rows) ([]domain.Question, error) {
 		var term *domain.Term
 
 		if err := rows.Scan(&q.ID, &q.ExamID, &q.Number, &q.Text, &q.Marks, &q.SourcePage,
-			&chID, &chNum, &chTitle, &conf, &q.Topic, &year, &term, &q.HasSolution); err != nil {
+			&chID, &chNum, &chTitle, &conf, &q.Topic, &year, &term, &q.HasSolution,
+			&q.Type); err != nil {
 			return nil, err
 		}
 		if chID != nil && chNum != nil && chTitle != nil {
@@ -189,7 +190,8 @@ func scanQuestions(rows pgx.Rows) ([]domain.Question, error) {
 
 // ListQuestions is the `enumerate` path: exhaustive, ordered and paginated.
 //
-// Filters are composed as SQL predicates rather than applied after the fact, // a request for every Chapter 3 question must return every Chapter 3 question,
+// Filters are composed as SQL predicates rather than applied after the fact.
+// A request for every Chapter 3 question must return every Chapter 3 question,
 // which top-k retrieval structurally cannot guarantee.
 func (s *Store) ListQuestions(ctx context.Context, courseID uuid.UUID, f domain.QuestionFilters, examID *uuid.UUID) ([]domain.Question, int, error) {
 	where := []string{"q.course_id = $1"}
@@ -216,6 +218,9 @@ func (s *Store) ListQuestions(ctx context.Context, courseID uuid.UUID, f domain.
 	}
 	if f.Term != nil {
 		add("e.term = $%d", *f.Term)
+	}
+	if f.QuestionType != nil {
+		add("q.question_type = $%d::question_type", *f.QuestionType)
 	}
 	if f.Query != "" {
 		add("q.search_tsv @@ plainto_tsquery('simple', $%d)", f.Query)

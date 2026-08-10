@@ -142,6 +142,9 @@ type Question struct {
 	Year        *int        `json:"year,omitempty"`
 	Term        Term        `json:"term,omitempty"`
 	HasSolution bool        `json:"hasSolution"`
+	// Type is the question's format (true/false, proof, derivation ...),
+	// independent of its chapter.
+	Type string `json:"type,omitempty"`
 }
 
 type QuestionDetail struct {
@@ -251,6 +254,7 @@ type QuestionFilters struct {
 	YearFrom      *int
 	YearTo        *int
 	Term          *Term
+	QuestionType  *string
 	Query         string
 	Sort          string
 	Page          int

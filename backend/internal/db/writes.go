@@ -172,12 +172,12 @@ func (s *Store) ReplaceQuestions(ctx context.Context, documentID uuid.UUID, ques
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO questions (course_id, exam_id, document_id, number, ordinal, text,
 			                       marks, source_page, chapter_id, chapter_confidence,
-			                       chapter_source, topic)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			                       chapter_source, topic, question_type)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::question_type)
 			RETURNING id`,
 			courseID, examID, documentID, q.Number, q.Ordinal, q.Text,
 			q.Marks, q.SourcePage, chapterID, q.Confidence,
-			nullIfEmpty(q.Source), nullIfEmpty(q.Topic)).Scan(&ids[i]); err != nil {
+			nullIfEmpty(q.Source), nullIfEmpty(q.Topic), string(q.Type)).Scan(&ids[i]); err != nil {
 			return nil, fmt.Errorf("insert question %s: %w", q.Number, err)
 		}
 	}
