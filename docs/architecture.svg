@@ -99,7 +99,7 @@
   <rect x="265" y="452" width="210" height="64" rx="6" fill="#0f172a"/>
   <rect x="265" y="452" width="210" height="64" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
   <text x="370" y="479" fill="white" font-size="13" font-weight="600" text-anchor="middle">Ingest workers</text>
-  <text x="370" y="498" fill="#94a3b8" font-size="10" text-anchor="middle">PDF text + page map · go-fitz</text>
+  <text x="370" y="498" fill="#94a3b8" font-size="10" text-anchor="middle">PDF · Word · OCR sidecar</text>
 
   <rect x="495" y="452" width="100" height="64" rx="6" fill="#0f172a"/>
   <rect x="495" y="452" width="100" height="64" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>

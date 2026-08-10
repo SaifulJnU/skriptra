@@ -152,7 +152,7 @@ upload -> object store -> NATS: document.uploaded
                               |
                          ingest worker
                               |
-              text + page map extraction (go-fitz)
+         text extraction: PDF, Word, or OCR sidecar
                               |
                     question segmentation
                               |
@@ -214,7 +214,7 @@ The reflex is that RAG means Python. Component by component, that turns out to b
 | **Embeddings** | Go, also an HTTP request to Ollama or a hosted endpoint |
 | Vector search, ranking, fusion | SQL |
 | Chunking, dedup, orchestration, streaming | Go |
-| Text + coordinates from digital PDFs | Go, `go-fitz` (MuPDF) returns text with page positions, which is exactly what citations need |
+| Text + page numbers from digital PDFs | Go, `ledongthuc/pdf`. Pure Go rather than a MuPDF binding, so the binary builds with no C toolchain |
 | **OCR of scanned papers** | Python, realistically, modern OCR (Surya, PaddleOCR, docTR) has no Go equivalent |
 | **Layout analysis, formulas → LaTeX** | Python, effectively no Go ecosystem |
 

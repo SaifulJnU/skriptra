@@ -132,7 +132,7 @@ Then open http://localhost:5173. The app runs entirely on the mock adapter, so n
 **Task 9, the ingestion pipeline.** Everything downstream of it is built and proven, so this is now the only thing standing between the system and real documents:
 
 1. `POST /courses/{id}/documents`, accept an upload, content-hash it, write the row, publish `document.uploaded` to NATS.
-2. Worker: consume the job, extract text and page numbers via the `ingest.Chain` (register a `go-fitz` parser as the first implementation).
+2. Worker: consume the job, extract text and page numbers via the `ingest.Chain`. DONE: `ledongthuc/pdf` for PDFs, `archive/zip` for Word, and a Tesseract sidecar for photos and scans.
 3. Segment pages into questions, try rules first (`Aufgabe N` / `Question N` headings) and measure before reaching for anything cleverer.
 4. Classify each question against the chapter taxonomy; store confidence.
 5. Embed chunks and questions through the `Embedder` interface; write to `chunks` and `question_embeddings`.
@@ -171,7 +171,7 @@ Upload lives as a modal/drawer, not a screen, with async ingest status polling v
 
 - **Name:** Skriptra.
 - **Vector store:** PostgreSQL + **pgvector**, behind a `VectorStore` interface. Qdrant adapter is phase 2, kept specifically to produce a benchmark comparison for interviews. Rationale in `docs/00-DESIGN.md`, at ~200k chunks the chapter filter *is* the optimisation, and filtered-HNSW recall (Qdrant's real advantage) does not bite until far larger corpora.
-- **Backend: Go only.** No Python. Embeddings and LLM calls are HTTP, retrieval is SQL, and PDF text + page coordinates come from `go-fitz`. Python is warranted solely for OCR and layout analysis, which are phase 2, the extraction interface is a seam so adding a sidecar later is additive. Rationale in `docs/00-DESIGN.md` §4.2.
+- **Backend: Go, with one Python service.** Embeddings and LLM calls are HTTP, retrieval is SQL, and PDF and Word extraction are Go libraries. OCR is the exception: Tesseract has no Go equivalent worth using, so `services/ocr` is a Python sidecar registered behind the `DocumentParser` interface. Polyglot by necessity, not by default. Rationale in `docs/00-DESIGN.md` §4.2.
 - **Messaging:** NATS for ingestion jobs. **Cache:** Redis.
 - **Model independence:** `LLM` and `Embedder` interfaces; implementation chosen by env config only. No `if production` branching anywhere.
 - **API versioning:** everything under `/api/v1/` from day one.
