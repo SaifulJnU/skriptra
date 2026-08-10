@@ -4,6 +4,7 @@ import { ArrowUp, Database, FileText, Loader2, Mic, Sparkles, Square } from "luc
 import { api, usingMocks } from "@/lib/client";
 import { useVoiceInput } from "@/lib/useVoiceInput";
 import type { AskEvent } from "@/lib/api";
+import { documentFileURL } from "@/lib/api";
 import type { Citation, QueryIntent, Question, Usage } from "@/types/api";
 import { Card, PageHeader } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
@@ -245,7 +246,7 @@ export default function Ask() {
                   {turn.sources.map((s, si) => (
                     <a
                       key={si}
-                      href={`/api/v1/documents/${s.documentId}/file#page=${s.page}`}
+                      href={documentFileURL(s.documentId, s.page)}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm transition hover:surface-sunken"

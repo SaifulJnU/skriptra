@@ -14,6 +14,7 @@ import type {
   Course,
   CourseDetail,
   Document,
+  DocumentKind,
   DocumentStatus,
   ExamDetail,
   Exam,
@@ -42,6 +43,20 @@ export interface AskRequest {
   filters?: RetrievalFilters;
 }
 
+export interface UploadMeta {
+  kind: DocumentKind;
+  year?: number;
+  term?: "summer" | "winter";
+}
+
+export interface UploadResult {
+  id: string;
+  status: string;
+  /** True when the same bytes were already in the course, so nothing was queued. */
+  deduplicated?: boolean;
+  message?: string;
+}
+
 export interface SkriptraApi {
   me(): Promise<User>;
   providers(): Promise<Providers>;
@@ -60,6 +75,21 @@ export interface SkriptraApi {
 
   listDocuments(courseId: string): Promise<Paged<Document>>;
   documentStatus(documentId: string): Promise<DocumentStatus>;
+
+  /**
+   * Uploads a document and returns as soon as it is queued.
+   *
+   * Ingestion is asynchronous, so the caller polls `documentStatus` from here.
+   * `onProgress` reports bytes sent, which matters because a scanned paper can
+   * be tens of megabytes on a slow connection and a spinner with no movement is
+   * indistinguishable from a hang.
+   */
+  uploadDocument(
+    courseId: string,
+    file: File,
+    meta: UploadMeta,
+    onProgress?: (fraction: number) => void,
+  ): Promise<UploadResult>;
 
   /** Streams answer events. Returns when the stream completes or aborts. */
   ask(req: AskRequest, onEvent: (e: AskEvent) => void, signal?: AbortSignal): Promise<void>;
@@ -90,6 +120,20 @@ export class ApiRequestError extends Error {
 }
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
+/**
+ * Absolute URL for a stored PDF, optionally anchored to a page.
+ *
+ * Built from the same base as every other call rather than as a relative path.
+ * A relative href resolves against the web origin, which in development is the
+ * Vite dev server: inside its container "localhost" is the container itself,
+ * so every citation link died on a proxy error. Going through BASE means the
+ * link points wherever the API actually is.
+ */
+export function documentFileURL(documentId: string, page?: number): string {
+  const url = `${BASE}/documents/${documentId}/file`;
+  return page ? `${url}#page=${page}` : url;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -146,6 +190,59 @@ export const httpApi: SkriptraApi = {
    * EventSource, because EventSource cannot issue a POST and the ask endpoint
    * needs a request body.
    */
+  /**
+   * XHR rather than fetch, purely for upload progress.
+   *
+   * fetch() still cannot report request-body progress in any shipping browser,
+   * and a large scan on a slow connection needs a moving bar rather than an
+   * indefinite spinner. Everything else in this client uses fetch.
+   */
+  uploadDocument(courseId, file, meta, onProgress) {
+    return new Promise<UploadResult>((resolve, reject) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", meta.kind);
+      if (meta.year) form.append("year", String(meta.year));
+      if (meta.term) form.append("term", meta.term);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${BASE}/courses/${courseId}/documents`);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+      };
+
+      xhr.onload = () => {
+        let body: Record<string, unknown> = {};
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          // Fall through to the status-based message below.
+        }
+
+        // 202 queued, 200 deduplicated. Both are success, and the contract
+        // distinguishes them so the UI can say "already uploaded" rather than
+        // pretending work was started.
+        if (xhr.status === 200 || xhr.status === 202) {
+          resolve(body as unknown as UploadResult);
+          return;
+        }
+        const err = body as { error?: { message?: string; code?: string } };
+        reject(
+          new ApiRequestError(
+            xhr.status,
+            err.error?.code ?? "upload_failed",
+            err.error?.message ?? `Upload failed (${xhr.status})`,
+          ),
+        );
+      };
+
+      xhr.onerror = () =>
+        reject(new ApiRequestError(0, "network", "Could not reach the server."));
+      xhr.send(form);
+    });
+  },
+
   ask(req, onEvent, signal) {
     return streamSSE(`${BASE}/ask`, { ...req, stream: true }, onEvent, signal);
   },

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, FileText, Lightbulb, Loader2, Sparkles, Square } from "lucide-react";
 import { api } from "@/lib/client";
 import type { AskEvent } from "@/lib/api";
+import { documentFileURL } from "@/lib/api";
 import type { Citation } from "@/types/api";
 import { Button, Card, ChapterBadge, ErrorState, Skeleton } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
@@ -305,7 +306,7 @@ export default function QuestionViewer() {
           </Card>
 
           <a
-            href={q.documentId ? `/api/v1/documents/${q.documentId}/file#page=${q.sourcePage}` : "#"}
+            href={q.documentId ? documentFileURL(q.documentId, q.sourcePage) : "#"}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-3 rounded-[var(--radius-card)] border p-4 transition hover:surface-sunken"

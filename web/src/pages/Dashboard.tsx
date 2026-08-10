@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, FileText, ListTree, Upload } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui";
+import UploadDialog from "@/components/UploadDialog";
 
 export default function Dashboard() {
+  const [uploadCourse, setUploadCourse] = useState<string | null>(null);
   const courses = useQuery({ queryKey: ["courses"], queryFn: () => api.listCourses() });
   const docs = useQuery({
     queryKey: ["documents", courses.data?.data[0]?.id],
@@ -14,11 +17,18 @@ export default function Dashboard() {
 
   return (
     <div className="animate-in">
+      {uploadCourse && (
+        <UploadDialog courseId={uploadCourse} onClose={() => setUploadCourse(null)} />
+      )}
       <PageHeader
         title="Your courses"
         subtitle="Upload past papers once, then search, compare and ask across every year."
         actions={
-          <Button>
+          <Button
+            onClick={() => setUploadCourse(courses.data?.data[0]?.id ?? null)}
+            disabled={!courses.data?.data.length}
+            title={courses.data?.data.length ? undefined : "Create a course first"}
+          >
             <Upload size={15} /> Upload paper
           </Button>
         }

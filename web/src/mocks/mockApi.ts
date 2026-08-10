@@ -10,6 +10,7 @@
 import type { AskEvent, AskRequest, SkriptraApi } from "@/lib/api";
 import type {
   Citation,
+  IngestStatus,
   Question,
   QueryIntent,
   SimilarQuestion,
@@ -25,6 +26,9 @@ import {
 } from "./data";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Documents uploaded during this session, so their status can advance. */
+const mockIngest = new Map<string, { started: number; filename: string }>();
 
 function paged<T>(data: T[], page = 1, pageSize = 20) {
   const start = (page - 1) * pageSize;
@@ -265,6 +269,30 @@ export const mockApi: SkriptraApi = {
 
   async documentStatus(documentId) {
     await delay(100);
+
+    // A document uploaded in this session advances through the real stage
+    // sequence on a timer.
+    const job = mockIngest.get(documentId);
+    if (job) {
+      const elapsed = Date.now() - job.started;
+      const stages: { at: number; status: IngestStatus; detail?: string }[] = [
+        { at: 0, status: "queued" },
+        { at: 1200, status: "parsing", detail: "extracting text" },
+        { at: 3000, status: "segmenting", detail: "splitting into questions" },
+        { at: 4800, status: "classifying", detail: "classifying question 4 of 6" },
+        { at: 7000, status: "embedding", detail: "computing embeddings" },
+        { at: 9000, status: "indexed" },
+      ];
+      const current = [...stages].reverse().find((s) => elapsed >= s.at)!;
+      return {
+        documentId,
+        status: current.status,
+        progress: Math.min(elapsed / 9000, 1),
+        stageDetail: current.detail,
+        questionsExtracted: current.status === "indexed" ? 6 : 0,
+      };
+    }
+
     const d = documents.find((x) => x.id === documentId);
     return {
       documentId,
@@ -336,6 +364,19 @@ export const mockApi: SkriptraApi = {
         },
       },
     });
+  },
+
+  // Walks the same stages the real pipeline reports, so the upload UI can be
+  // built and reviewed without a backend, and the progress states are exercised
+  // rather than assumed.
+  async uploadDocument(_courseId: string, file: File, _meta, onProgress) {
+    for (let p = 0; p <= 1; p += 0.2) {
+      await delay(90);
+      onProgress?.(Math.min(p, 1));
+    }
+    const id = crypto.randomUUID();
+    mockIngest.set(id, { started: Date.now(), filename: file.name });
+    return { id, status: "queued" };
   },
 
   async generateSolution(questionId: string, onEvent: (e: AskEvent) => void, signal?: AbortSignal) {

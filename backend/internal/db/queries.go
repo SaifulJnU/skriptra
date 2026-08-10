@@ -483,6 +483,23 @@ func (s *Store) ListDocuments(ctx context.Context, courseID uuid.UUID, page, pag
 	return out, total, rows.Err()
 }
 
+// DocumentFile is the minimum needed to serve the stored PDF.
+type DocumentFile struct {
+	StorageKey string
+	Filename   string
+}
+
+func (s *Store) GetDocumentFile(ctx context.Context, id uuid.UUID) (*DocumentFile, error) {
+	var d DocumentFile
+	err := s.pool.QueryRow(ctx,
+		`SELECT storage_key, filename FROM documents WHERE id = $1`, id).
+		Scan(&d.StorageKey, &d.Filename)
+	if err != nil {
+		return nil, norm(err)
+	}
+	return &d, nil
+}
+
 func (s *Store) DocumentStatus(ctx context.Context, id uuid.UUID) (*domain.DocumentStatus, error) {
 	var st domain.DocumentStatus
 	var stage, errMsg *string

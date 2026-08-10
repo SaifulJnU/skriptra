@@ -77,6 +77,7 @@ func (s *Server) Routes() http.Handler {
 		v1.POST("/ask", s.ask)
 
 		v1.GET("/documents/:documentId/status", s.documentStatus)
+		v1.GET("/documents/:documentId/file", s.serveDocument)
 	}
 	return r
 }

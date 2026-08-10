@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, FileText, ListTree, Sparkles, Upload } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, ErrorState, PageHeader, Skeleton } from "@/components/ui";
+import UploadDialog from "@/components/UploadDialog";
 import { formatPercent } from "@/lib/utils";
 
 export default function CourseOverview() {
   const { courseId = "" } = useParams();
+  const [uploading, setUploading] = useState(false);
 
   const course = useQuery({
     queryKey: ["course", courseId],
@@ -32,6 +35,7 @@ export default function CourseOverview() {
 
   return (
     <div className="animate-in">
+      {uploading && <UploadDialog courseId={courseId} onClose={() => setUploading(false)} />}
       <PageHeader
         title={course.data?.name ?? <Skeleton className="h-8 w-52" />}
         subtitle={
@@ -48,7 +52,7 @@ export default function CourseOverview() {
         }
         actions={
           <>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setUploading(true)}>
               <Upload size={15} /> Upload
             </Button>
             <Link to={`/courses/${courseId}/ask`}>
