@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -10,10 +11,32 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/skriptra/skriptra/backend/internal/ingest"
 )
+
+// ocrAvailable reports whether the OCR sidecar can be reached.
+//
+// Cached for a short window: this runs on every upload of a scan, and a health
+// check per upload would add a round trip to a path the user is waiting on.
+// Short enough that starting the service does not require restarting the API.
+func (s *Server) ocrAvailable(ctx context.Context) bool {
+	if s.cfg.OCRURL == "" {
+		return false
+	}
+	if time.Since(s.ocrCheckedAt) < 30*time.Second {
+		return s.ocrHealthy
+	}
+	parser := ingest.NewOCRParser(s.cfg.OCRURL)
+	if parser == nil {
+		return false
+	}
+	s.ocrHealthy = parser.Healthy(ctx)
+	s.ocrCheckedAt = time.Now()
+	return s.ocrHealthy
+}
 
 // uploadDocument accepts a file, stores it, and queues ingestion.
 //
@@ -59,19 +82,26 @@ func (s *Server) uploadDocument(c *gin.Context) {
 		return
 	}
 
-	if !strings.HasPrefix(string(content), "%PDF") {
+	// Format is decided by content, not by the filename. A phone that names a
+	// photo "scan.pdf" is still sending an image.
+	format, probe := ingest.ProbeDocument(content)
+	if format == ingest.FormatUnknown {
 		fail(c, http.StatusUnsupportedMediaType, "unsupported_media",
-			"Only PDF files are supported.")
+			fmt.Sprintf("Unsupported file type. Supported: %s.",
+				strings.Join(ingest.SupportedFormats(), ", ")))
 		return
 	}
 
-	// Reject a scan up front rather than accepting it and indexing nothing.
-	// The error names the missing capability so the operator knows the fix is
-	// to deploy an OCR parser, not to re-upload.
-	probe := ingest.ProbePDF(content)
-	if !probe.HasTextLayer {
-		fail(c, http.StatusUnprocessableEntity, "no_text_layer",
-			"This PDF has no text layer, so it is a scan. OCR is not enabled in this deployment.")
+	// Anything without a text layer needs OCR. Rejecting it here, rather than
+	// accepting it and having a worker fail out of sight, means the message
+	// names the missing capability while the user is still looking at the
+	// dialog.
+	if !probe.HasTextLayer && !s.ocrAvailable(c) {
+		msg := "This PDF has no text layer, so it is a scan, and OCR is not enabled in this deployment."
+		if format == ingest.FormatImage {
+			msg = "Reading a photo needs OCR, which is not enabled in this deployment."
+		}
+		fail(c, http.StatusUnprocessableEntity, "ocr_unavailable", msg)
 		return
 	}
 

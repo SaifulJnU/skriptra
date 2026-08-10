@@ -26,6 +26,7 @@ type Config struct {
 	NATSURL     string
 	RedisURL    string
 	ParserAddr  string
+	OCRURL      string
 
 	StorageDir  string
 	MaxUploadMB int
@@ -52,6 +53,7 @@ func Load() (*Config, error) {
 		NATSURL:     env("NATS_URL", "nats://localhost:4222"),
 		RedisURL:    env("REDIS_URL", "redis://localhost:6379"),
 		ParserAddr:  env("PARSER_ADDR", "localhost:50051"),
+		OCRURL:      env("OCR_URL", ""),
 
 		StorageDir:  env("STORAGE_DIR", "./data/uploads"),
 		MaxUploadMB: envInt("MAX_UPLOAD_MB", 50),

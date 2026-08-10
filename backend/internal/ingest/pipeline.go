@@ -65,9 +65,17 @@ type Pipeline struct {
 	log      *slog.Logger
 }
 
-func NewPipeline(store Store, embedder provider.Embedder, llm provider.LLM, log *slog.Logger) *Pipeline {
+func NewPipeline(store Store, embedder provider.Embedder, llm provider.LLM, ocrURL string, log *slog.Logger) *Pipeline {
 	chain := &Chain{}
 	chain.Register(PDFParser{})
+	chain.Register(DOCXParser{})
+	// Registering the OCR adapter is the entire integration. With OCR_URL
+	// unset this is skipped and a photograph is refused with a message naming
+	// the missing capability, rather than being indexed as nothing.
+	if ocr := NewOCRParser(ocrURL); ocr != nil {
+		chain.Register(ocr)
+		log.Info("ocr sidecar registered", "url", ocrURL)
+	}
 	return &Pipeline{parsers: chain, store: store, embedder: embedder, llm: llm, log: log}
 }
 
@@ -92,7 +100,16 @@ func (p *Pipeline) Run(ctx context.Context, job Job) error {
 	// --- parse ---------------------------------------------------------
 	_ = p.store.SetStatus(ctx, job.DocumentID, "parsing", 0.1, "extracting text")
 
-	probe := ProbePDF(job.Content)
+	format, probe := ProbeDocument(job.Content)
+	if format == FormatUnknown {
+		return fail("parsing", fmt.Errorf("unrecognised file type, supported: %v", SupportedFormats()))
+	}
+	// A DOCX is never routed to OCR: it either has text or it is empty, and
+	// running OCR over an empty one would waste minutes to produce nothing.
+	if format == FormatDOCX {
+		probe.LikelyScanned = false
+	}
+
 	doc, err := p.parsers.Parse(ctx, bytes.NewReader(job.Content), job.Filename, probe)
 	if err != nil {
 		return fail("parsing", err)

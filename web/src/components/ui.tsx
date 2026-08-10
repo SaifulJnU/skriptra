@@ -146,6 +146,55 @@ export function Button({
   );
 }
 
+/**
+ * A native select that stays readable in both themes.
+ *
+ * The dropdown list a browser opens for a <select> is an OS-level popup, not
+ * part of the page, so Tailwind classes on the element do not reach it. With a
+ * transparent background the options fell back to the browser default, which in
+ * dark mode meant near-invisible text. Explicit colours on both the control and
+ * each <option> are what actually reach the popup, and `colorScheme` tells the
+ * browser which set of native chrome to draw.
+ */
+export function Select({
+  value,
+  onChange,
+  options,
+  className,
+  ...props
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+} & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange">) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn(
+        "w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-transparent",
+        className,
+      )}
+      style={{
+        background: "var(--surface-raised)",
+        color: "var(--text-primary)",
+        colorScheme: "inherit",
+      }}
+      {...props}
+    >
+      {options.map((o) => (
+        <option
+          key={o.value}
+          value={o.value}
+          style={{ background: "var(--surface-raised)", color: "var(--text-primary)" }}
+        >
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function PageHeader({
   title,
   subtitle,

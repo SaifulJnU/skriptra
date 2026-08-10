@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, FileText, Loader2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, Camera, CheckCircle2, FileText, Loader2, UploadCloud, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { ApiRequestError, type UploadMeta } from "@/lib/api";
 import type { DocumentKind, IngestStatus } from "@/types/api";
-import { Button } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 
 /**
  * Upload a past paper and watch it get indexed.
@@ -56,6 +56,7 @@ export default function UploadDialog({
   const [deduplicated, setDeduplicated] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<number | null>(null);
 
   // Escape closes, but not mid-upload: cancelling a request already in flight
@@ -158,7 +159,7 @@ export default function UploadDialog({
           <div>
             <h2 className="text-[17px] font-semibold">Upload a document</h2>
             <p className="mt-1 text-sm text-secondary">
-              PDFs with a text layer. Scans need OCR, which is not enabled yet.
+              PDF, Word, or a photo of a paper page.
             </p>
           </div>
           <button
@@ -193,7 +194,18 @@ export default function UploadDialog({
               <input
                 ref={inputRef}
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
+                className="hidden"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              {/* capture="environment" asks a phone for the rear camera
+                  directly. On a desktop browser the attribute is ignored and
+                  this behaves as an ordinary picker, so one input covers both. */}
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
                 className="hidden"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
@@ -208,28 +220,32 @@ export default function UploadDialog({
               ) : (
                 <>
                   <UploadCloud size={22} className="mb-2 text-tertiary" />
-                  <p className="text-sm font-medium">Drop a PDF here, or click to choose</p>
-                  <p className="mt-1 text-xs text-tertiary">Maximum 50 MB</p>
+                  <p className="text-sm font-medium">Drop a file here, or click to choose</p>
+                  <p className="mt-1 text-xs text-tertiary">
+                    PDF, Word, or a photo. Maximum 50 MB.
+                  </p>
                 </>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2.5 text-sm text-secondary transition hover:surface-sunken"
+            >
+              <Camera size={15} /> Take a photo of a page
+            </button>
 
             <div className="mt-5 space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-secondary">
                   What is it?
                 </label>
-                <select
+                <Select
                   value={kind}
-                  onChange={(e) => setKind(e.target.value as DocumentKind)}
-                  className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
-                >
-                  {KINDS.map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setKind(v as DocumentKind)}
+                  options={KINDS.map((k) => ({ value: k.value, label: k.label }))}
+                />
                 <p className="mt-1.5 text-xs text-tertiary">
                   {KINDS.find((k) => k.value === kind)?.hint}
                 </p>
@@ -246,20 +262,21 @@ export default function UploadDialog({
                       placeholder="2025"
                       min={1990}
                       max={2100}
-                      className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
+                      className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                      style={{ background: "var(--surface-raised)", color: "var(--text-primary)" }}
                     />
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-secondary">Term</label>
-                    <select
+                    <Select
                       value={term}
-                      onChange={(e) => setTerm(e.target.value as typeof term)}
-                      className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
-                    >
-                      <option value="">Not sure</option>
-                      <option value="summer">Summer</option>
-                      <option value="winter">Winter</option>
-                    </select>
+                      onChange={(v) => setTerm(v as typeof term)}
+                      options={[
+                        { value: "", label: "Not sure" },
+                        { value: "summer", label: "Summer" },
+                        { value: "winter", label: "Winter" },
+                      ]}
+                    />
                   </div>
                 </div>
               )}
@@ -268,6 +285,16 @@ export default function UploadDialog({
               </p>
             </div>
           </>
+        )}
+
+        {file && file.type.startsWith("image/") && !documentId && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-500/10 px-3.5 py-2.5">
+            <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs leading-relaxed text-secondary">
+              A photo has to be read by OCR, which needs the OCR service running. Text will be
+              less accurate than a digital PDF, so check the extracted questions afterwards.
+            </p>
+          </div>
         )}
 
         {sending && sendProgress < 1 && !documentId && (

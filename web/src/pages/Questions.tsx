@@ -9,6 +9,7 @@ import {
   ErrorState,
   PageHeader,
   Skeleton,
+  Select,
 } from "@/components/ui";
 import { examLabel } from "@/lib/utils";
 
@@ -92,15 +93,16 @@ export default function Questions() {
           </button>
         ))}
 
-        <select
+        <Select
           value={sort}
-          onChange={(e) => setParam("sort", e.target.value)}
-          className="ml-auto rounded-lg border bg-transparent px-2.5 py-1.5 text-[13px]"
-        >
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="chapter">By chapter</option>
-        </select>
+          onChange={(v) => setParam("sort", v)}
+          className="ml-auto w-auto px-2.5 py-1.5 text-[13px]"
+          options={[
+            { value: "newest", label: "Newest first" },
+            { value: "oldest", label: "Oldest first" },
+            { value: "chapter", label: "By chapter" },
+          ]}
+        />
       </div>
 
       {questions.isLoading && (

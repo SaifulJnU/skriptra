@@ -89,11 +89,25 @@ services:
       - ./backend:/app
       - uploads:/data/uploads
 
-  # NOTE: there is no parser service. PDF text and page-coordinate extraction
-  # runs inside the worker via go-fitz, see docs/00-DESIGN.md §4.2. A Python
-  # sidecar is only warranted for OCR and layout analysis, which are phase 2.
-  # The extraction interface is already a seam, so adding it here later is
-  # additive rather than a rewrite.
+  # The one service that is not Go, and the reason is specific: Tesseract has no
+  # Go equivalent worth using. Everything else stays in the worker.
+  #
+  # Behind a profile because it pulls Tesseract and poppler, which makes for a
+  # slow first build and is pointless if the corpus is digital PDFs:
+  #
+  #   docker compose --profile ocr up
+  ocr:
+    build:
+      context: ./services/ocr
+    profiles: [ocr]
+    environment:
+      OCR_LANGS: eng+deu
+    ports: ["50052:50052"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:50052/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   web:
     image: node:22-alpine

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -34,6 +35,10 @@ type Server struct {
 	queue    Publisher
 	cache    cache.Cache
 	log      *slog.Logger
+
+	// Cached OCR reachability, see ocrAvailable.
+	ocrHealthy   bool
+	ocrCheckedAt time.Time
 }
 
 func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, q Publisher, c cache.Cache, log *slog.Logger) *Server {

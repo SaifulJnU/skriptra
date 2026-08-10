@@ -73,11 +73,7 @@ func run() error {
 	}
 	defer q.Close()
 
-	pipeline := ingest.NewPipeline(store, embedder, llm, log)
-
-	// Where a Python OCR sidecar would be registered, once one exists:
-	//   pipeline.RegisterParser(grpcparser.New(cfg.ParserAddr))
-	// Nothing else in this file, or in the pipeline, would change.
+	pipeline := ingest.NewPipeline(store, embedder, llm, cfg.OCRURL, log)
 
 	log.Info("worker started", "nats", cfg.NATSURL, "storage", cfg.StorageDir)
 
