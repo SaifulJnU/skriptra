@@ -1,9 +1,138 @@
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, FileText, Lightbulb } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, Lightbulb, Loader2, Sparkles, Square } from "lucide-react";
 import { api } from "@/lib/client";
-import { Card, ChapterBadge, ErrorState, Skeleton } from "@/components/ui";
+import type { AskEvent } from "@/lib/api";
+import type { Citation } from "@/types/api";
+import { Button, Card, ChapterBadge, ErrorState, Skeleton } from "@/components/ui";
+import { Markdown } from "@/components/Markdown";
 import { examLabel, formatPercent } from "@/lib/utils";
+
+/**
+ * Offers a generated worked solution when the course has not published one.
+ *
+ * Presented as clearly distinct from an official solution throughout: a
+ * different heading, a standing caveat, and citations to the material it was
+ * grounded in. A student revising from this will act on it in an exam, so the
+ * distinction has to survive skim-reading.
+ */
+function GeneratedSolution({ questionId }: { questionId: string }) {
+  const [text, setText] = useState("");
+  const [sources, setSources] = useState<Citation[]>([]);
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string>();
+  const [started, setStarted] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  async function generate() {
+    setStarted(true);
+    setStreaming(true);
+    setError(undefined);
+    setText("");
+    setSources([]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    await api.generateSolution(
+      questionId,
+      (e: AskEvent) => {
+        switch (e.type) {
+          case "sources":
+            setSources(e.sources);
+            break;
+          case "token":
+            setText((prev) => prev + e.text);
+            break;
+          case "error":
+            // A failed generation grounds nothing, so its citations go too.
+            setError(e.message);
+            setSources([]);
+            setText("");
+            break;
+        }
+      },
+      controller.signal,
+    );
+    setStreaming(false);
+  }
+
+  if (!started) {
+    return (
+      <Card className="mt-6 border-dashed p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">No official solution for this paper</p>
+            <p className="mt-1 text-sm text-secondary">
+              Skriptra can work through it using this course&apos;s material.
+            </p>
+          </div>
+          <Button onClick={generate}>
+            <Sparkles size={15} /> Generate a solution
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <section className="mt-6">
+      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wider text-tertiary">
+        <Sparkles size={14} /> Generated solution
+      </h2>
+
+      <Card className="p-6">
+        <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-amber-500/10 px-3.5 py-2.5">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-xs leading-relaxed text-secondary">
+            Generated from course material, not an official mark scheme. Check it against your
+            lecture notes before relying on it.
+          </p>
+        </div>
+
+        {error ? (
+          <p className="text-sm text-red-500">{error}</p>
+        ) : text ? (
+          <Markdown className="text-[14.5px] leading-[1.75] text-secondary">{text}</Markdown>
+        ) : (
+          streaming && (
+            <span className="inline-flex items-center gap-2 text-sm text-tertiary">
+              <Loader2 size={14} className="animate-spin" /> Working through it...
+            </span>
+          )
+        )}
+
+        {sources.length > 0 && (
+          <div className="mt-5 border-t pt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+              Grounded in
+            </p>
+            <div className="space-y-1">
+              {sources.map((s, i) => (
+                <p key={i} className="text-xs text-tertiary">
+                  {s.label}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 flex gap-2">
+          {streaming ? (
+            <Button variant="outline" size="sm" onClick={() => abortRef.current?.abort()}>
+              <Square size={13} /> Stop
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={generate}>
+              Regenerate
+            </Button>
+          )}
+        </div>
+      </Card>
+    </section>
+  );
+}
 
 /**
  * The question viewer: the screen that carries the product.
@@ -83,11 +212,7 @@ export default function QuestionViewer() {
               </Card>
             </section>
           ) : (
-            <Card className="mt-6 border-dashed p-5">
-              <p className="text-sm text-tertiary">
-                No solution has been uploaded for this paper yet.
-              </p>
-            </Card>
+            <GeneratedSolution questionId={q.id} />
           )}
 
           <section className="mt-10">

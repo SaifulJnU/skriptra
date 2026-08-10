@@ -63,6 +63,18 @@ export interface SkriptraApi {
 
   /** Streams answer events. Returns when the stream completes or aborts. */
   ask(req: AskRequest, onEvent: (e: AskEvent) => void, signal?: AbortSignal): Promise<void>;
+
+  /**
+   * Generates a worked solution for a question that has none.
+   *
+   * The result is never stored as the official solution. It is a model's
+   * attempt grounded in course material, and the UI must present it as such.
+   */
+  generateSolution(
+    questionId: string,
+    onEvent: (e: AskEvent) => void,
+    signal?: AbortSignal,
+  ): Promise<void>;
 }
 
 /** Thrown for any non-2xx response, carrying the server's stable error code. */
@@ -134,60 +146,93 @@ export const httpApi: SkriptraApi = {
    * EventSource, because EventSource cannot issue a POST and the ask endpoint
    * needs a request body.
    */
-  async ask(req, onEvent, signal) {
-    const res = await fetch(`${BASE}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: JSON.stringify({ ...req, stream: true }),
-      signal,
-    });
+  ask(req, onEvent, signal) {
+    return streamSSE(`${BASE}/ask`, { ...req, stream: true }, onEvent, signal);
+  },
 
-    if (!res.ok || !res.body) {
-      onEvent({ type: "error", message: `Request failed (${res.status})` });
-      return;
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // SSE frames are separated by a blank line.
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() ?? "";
-
-      for (const frame of frames) {
-        let event = "message";
-        const dataLines: string[] = [];
-        for (const line of frame.split("\n")) {
-          if (line.startsWith("event:")) event = line.slice(6).trim();
-          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
-        }
-        if (!dataLines.length) continue;
-
-        const payload = JSON.parse(dataLines.join("\n"));
-        switch (event) {
-          case "intent":
-            onEvent({ type: "intent", intent: payload.intent });
-            break;
-          case "sources":
-            onEvent({ type: "sources", sources: payload.sources, questions: payload.questions });
-            break;
-          case "token":
-            onEvent({ type: "token", text: payload.text });
-            break;
-          case "done":
-            onEvent({ type: "done", answer: payload });
-            break;
-          case "error":
-            onEvent({ type: "error", message: payload.message ?? "Stream error" });
-            break;
-        }
-      }
-    }
+  generateSolution(questionId, onEvent, signal) {
+    return streamSSE(`${BASE}/questions/${questionId}/solution`, { stream: true }, onEvent, signal);
   },
 };
+
+/**
+ * Parses a `text/event-stream` response by hand rather than using EventSource,
+ * because EventSource cannot issue a POST and both endpoints need a body.
+ */
+async function streamSSE(
+  url: string,
+  body: unknown,
+  onEvent: (e: AskEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    if ((err as Error)?.name === "AbortError") return;
+    onEvent({ type: "error", message: "Could not reach the server." });
+    return;
+  }
+
+  if (!res.ok || !res.body) {
+    // A non-streaming error body still carries the contract's error envelope,
+    // so surface the server's message rather than a bare status code.
+    let message = `Request failed (${res.status})`;
+    try {
+      const parsed = await res.json();
+      message = parsed?.error?.message ?? message;
+    } catch {
+      // Non-JSON body; keep the status message.
+    }
+    onEvent({ type: "error", message });
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE frames are separated by a blank line.
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      let event = "message";
+      const dataLines: string[] = [];
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+      }
+      if (!dataLines.length) continue;
+
+      const payload = JSON.parse(dataLines.join("\n"));
+      switch (event) {
+        case "intent":
+          onEvent({ type: "intent", intent: payload.intent });
+          break;
+        case "sources":
+          onEvent({ type: "sources", sources: payload.sources, questions: payload.questions });
+          break;
+        case "token":
+          onEvent({ type: "token", text: payload.text });
+          break;
+        case "done":
+          onEvent({ type: "done", answer: payload });
+          break;
+        case "error":
+          onEvent({ type: "error", message: payload.message ?? "Stream error" });
+          break;
+      }
+    }
+  }
+}

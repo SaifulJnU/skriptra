@@ -337,6 +337,38 @@ export const mockApi: SkriptraApi = {
       },
     });
   },
+
+  async generateSolution(questionId: string, onEvent: (e: AskEvent) => void, signal?: AbortSignal) {
+    const q = questions.find((x) => x.id === questionId);
+    await delay(400);
+    if (signal?.aborted) return;
+
+    const sources = questions
+      .filter((x) => x.id !== questionId && x.chapter?.number === q?.chapter?.number)
+      .slice(0, 3)
+      .map(citationFor);
+    onEvent({ type: "sources", sources });
+
+    const text = `Start from the model y = Xβ + ε and minimise the residual sum of squares S(β) = (y − Xβ)ᵀ(y − Xβ).\n\nDifferentiating with respect to β and setting the derivative to zero gives the normal equations XᵀXβ = Xᵀy, so β̂ = (XᵀX)⁻¹Xᵀy whenever XᵀX is invertible.\n\nUnbiasedness needs only E[ε] = 0 and that X is fixed: E[β̂] = β + (XᵀX)⁻¹XᵀE[ε] = β. Neither constant variance nor normality is required for this part.`;
+
+    for (const tok of text.match(/\S+\s*/g) ?? []) {
+      if (signal?.aborted) return;
+      await delay(12);
+      onEvent({ type: "token", text: tok });
+    }
+
+    onEvent({
+      type: "done",
+      answer: {
+        conversationId: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        intent: "explain",
+        answer: text,
+        sources,
+        usage: { retrievedChunks: sources.length, latencyMs: 1400, provider: "ollama", model: "llama3.2:3b" },
+      },
+    });
+  },
 };
 
 export { COURSE_ID };

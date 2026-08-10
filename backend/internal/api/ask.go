@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -36,10 +37,21 @@ const systemPrompt = `You are a study assistant for a university course. You ans
 
 Rules:
 - Use only the passages. Do not add material from general knowledge.
-- If the passages do not contain the answer, say so plainly and stop. Do not speculate.
+- If the passages do not contain the answer, reply with exactly INSUFFICIENT_CONTEXT on the first line and nothing else. Do not speculate and do not apologise at length.
 - Refer to sources as [1], [2] matching the numbered passages.
 - Be precise and concise. Prefer the notation the course itself uses.
 - Mathematics may be written in plain text or LaTeX, whichever is clearer.`
+
+// refusalToken is the sentinel the prompt asks for when the corpus cannot
+// support an answer.
+//
+// An explicit signal rather than inferring refusal from the text. The earlier
+// attempt treated "no [1] markers" as proof of an ungrounded answer, which was
+// behaviourally sound but wrong in practice: a small model often produces a
+// perfectly grounded answer without emitting markers, and its citations were
+// then stripped incorrectly. Asking for one token is something even a 3B model
+// follows reliably, and it does not depend on refusal phrasing or language.
+const refusalToken = "INSUFFICIENT_CONTEXT"
 
 func (s *Server) ask(c *gin.Context) {
 	var req askRequest
@@ -218,7 +230,6 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d rout
 		sources[i] = h.Citation
 		fmt.Fprintf(&ctxBuf, "[%d] (%s)\n%s\n\n", i+1, h.Citation.Label, h.Text)
 	}
-	w.event("sources", gin.H{"sources": sources})
 
 	genReq := provider.GenerateRequest{
 		Messages: []provider.Message{
@@ -230,11 +241,23 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d rout
 		MaxTokens:   800,
 	}
 
+	// Open the stream BEFORE announcing sources.
+	//
+	// Citations are a claim that an answer is grounded in those passages. If
+	// generation never starts there is no answer, so the claim is false, and
+	// showing a list of sources beside an error message is precisely the
+	// dishonesty this product exists to avoid. An unreachable provider fails
+	// here, before a single citation has been sent.
 	stream, err := s.llm.Stream(c, genReq)
 	if err != nil {
 		w.fail(err)
 		return
 	}
+
+	// Generation is underway, so the citations are now a claim that will be
+	// backed by an answer. Sent before the tokens so they render alongside the
+	// text as it streams.
+	w.event("sources", gin.H{"sources": sources})
 
 	var full strings.Builder
 	usage := domain.Usage{RetrievedChunks: len(hits)}
@@ -256,14 +279,53 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d rout
 	}
 	usage.LatencyMs = time.Since(started).Milliseconds()
 
+	answer := full.String()
+
+	// An answer that cites nothing is not grounded in the passages, whatever
+	// was retrieved for it. The commonest case is the model correctly refusing
+	// because the corpus does not cover the question, and attaching a list of
+	// citations to a refusal claims provenance for an answer that was never
+	// given. The `done` payload is authoritative, so the client corrects any
+	// citations it rendered while streaming.
+	// A refusal grounds nothing, so it must not carry citations. Replaced with
+	// wording a student can act on, since the sentinel itself means nothing to
+	// them. Empty array rather than nil: the contract types `sources` as a
+	// required array and a client trusting the spec should not meet a null.
+	if isRefusal(answer) {
+		answer = "**No indexed passage covers that.**\n\nNothing in the uploaded material for this course answers the question. Try rephrasing it, or upload the relevant paper or notes."
+		sources = []domain.Citation{}
+		usage.RetrievedChunks = 0
+	}
+
 	w.done(domain.Answer{
 		ConversationID: uuid.New(),
 		MessageID:      uuid.New(),
 		Intent:         d.Intent,
-		Answer:         full.String(),
+		Answer:         answer,
 		Sources:        sources,
 		Usage:          &usage,
 	})
+}
+
+// reRefusal matches the sentinel tolerantly.
+//
+// Models normalise punctuation in tokens they are told to emit verbatim:
+// llama3.2 returns "INSUFFICIENT CONTEXT" with a space where the prompt asked
+// for an underscore. Requiring the exact string made the check silently fail,
+// so separators and case are both treated as noise.
+var reRefusal = regexp.MustCompile(`(?i)insufficient[\s_\-]*context`)
+
+// isRefusal reports whether the model signalled that the passages were
+// insufficient.
+//
+// Only the opening of the answer is examined, so a model discussing the phrase
+// in passing is not mistaken for one refusing.
+func isRefusal(answer string) bool {
+	head := strings.TrimSpace(answer)
+	if len(head) > 200 {
+		head = head[:200]
+	}
+	return reRefusal.MatchString(head)
 }
 
 func citationFor(q domain.Question) domain.Citation {

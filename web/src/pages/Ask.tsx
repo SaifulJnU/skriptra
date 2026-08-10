@@ -6,6 +6,7 @@ import { useVoiceInput } from "@/lib/useVoiceInput";
 import type { AskEvent } from "@/lib/api";
 import type { Citation, QueryIntent, Question, Usage } from "@/types/api";
 import { Card, PageHeader } from "@/components/ui";
+import { Markdown } from "@/components/Markdown";
 import { examLabel } from "@/lib/utils";
 
 /**
@@ -89,10 +90,30 @@ export default function Ask() {
             patch((t) => ({ ...t, text: t.text + e.text }));
             break;
           case "done":
-            patch((t) => ({ ...t, streaming: false, usage: e.answer.usage }));
+            // The done payload is authoritative. The server drops citations
+            // from an answer that turned out not to cite anything, so any
+            // sources rendered while streaming are corrected here.
+            patch((t) => ({
+              ...t,
+              streaming: false,
+              usage: e.answer.usage,
+              sources: e.answer.sources ?? [],
+            }));
             break;
           case "error":
-            patch((t) => ({ ...t, streaming: false, error: e.message }));
+            // Drop any citations already received. A failed answer grounds
+            // nothing, so showing sources next to the error would claim
+            // provenance for text that was never produced. The server now
+            // withholds them until generation starts; this also covers a
+            // failure part-way through a stream.
+            patch((t) => ({
+              ...t,
+              streaming: false,
+              error: e.message,
+              sources: [],
+              questions: undefined,
+              text: "",
+            }));
             break;
         }
       },
@@ -163,18 +184,10 @@ export default function Ask() {
               </Card>
             ) : (
               <div className="text-[15px] leading-[1.8] text-secondary">
-                {turn.text.split("\n\n").map((para, pi) => (
-                  <p
-                    key={pi}
-                    className={
-                      pi === turn.text.split("\n\n").length - 1 && turn.streaming ? "caret" : ""
-                    }
-                    dangerouslySetInnerHTML={{ __html: renderInline(para) }}
-                  />
-                ))}
+                {turn.text && <Markdown>{turn.text}</Markdown>}
                 {turn.streaming && !turn.text && (
                   <span className="inline-flex items-center gap-2 text-sm text-tertiary">
-                    <Loader2 size={14} className="animate-spin" /> Retrieving…
+                    <Loader2 size={14} className="animate-spin" /> Retrieving...
                   </span>
                 )}
               </div>
@@ -325,11 +338,3 @@ export default function Ask() {
   );
 }
 
-/** Minimal inline markdown, bold only. Sources render as real links, not markdown. */
-function renderInline(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong class='font-semibold' style='color:var(--text-primary)'>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>");
-}

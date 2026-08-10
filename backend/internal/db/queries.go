@@ -293,6 +293,15 @@ func (s *Store) GetQuestion(ctx context.Context, id uuid.UUID) (*domain.Question
 }
 
 // SimilarQuestions is the `similar` path: question-level k-NN excluding self.
+// CourseIDForQuestion resolves the owning course, so callers that only hold a
+// question id can scope retrieval correctly.
+func (s *Store) CourseIDForQuestion(ctx context.Context, questionID uuid.UUID) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := s.pool.QueryRow(ctx,
+		`SELECT course_id FROM questions WHERE id = $1`, questionID).Scan(&id)
+	return id, norm(err)
+}
+
 func (s *Store) SimilarQuestions(ctx context.Context, questionID uuid.UUID, limit int, minScore float64) ([]domain.SimilarQuestion, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH ref AS (

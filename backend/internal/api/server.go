@@ -66,6 +66,7 @@ func (s *Server) Routes() http.Handler {
 		v1.GET("/exams/:examId", s.getExam)
 		v1.GET("/questions/:questionId", s.getQuestion)
 		v1.GET("/questions/:questionId/similar", s.similarQuestions)
+		v1.POST("/questions/:questionId/solution", s.generateSolution)
 
 		v1.POST("/search", s.search)
 		v1.POST("/ask", s.ask)
