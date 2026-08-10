@@ -74,6 +74,26 @@ export function classifyIntent(text: string): QueryIntent {
   return "explain";
 }
 
+/** A worked solution that answers the question it is attached to. */
+function solutionFor(text: string): string {
+  const t = text.toLowerCase();
+  if (t.includes("gauss-markov") || t.includes("blue"))
+    return "Under zero-mean errors, constant variance and full column rank, OLS has the smallest variance among all linear unbiased estimators. Write any linear unbiased estimator as Cy with C = (X^T X)^-1 X^T + D; unbiasedness forces DX = 0, and the variance then exceeds that of b_hat by a positive semi-definite term. \"Best\" means minimum variance within the linear unbiased class, not among all estimators. Normality is not required.";
+  if (t.includes("f-test") || t.includes("joint significance"))
+    return "Fit the unrestricted model and the model with both coefficients set to zero. With q = 2 restrictions, F = [(RSS_r - RSS_u)/q] / [RSS_u/(n - p)], which is F(q, n - p) under the null with normal errors. Reject above the upper 5 per cent point. The test weighs the gain in fit against the degrees of freedom spent, which is why it can reject where two separate t-tests do not.";
+  if (t.includes("leverage") || t.includes("cook"))
+    return "Leverage h_ii is the i-th diagonal of the hat matrix and depends only on the predictors, measuring how unusual an observation is in X-space. Cook's distance combines leverage with the residual to measure the actual shift in fitted coefficients when the point is dropped. A point far out in X-space whose response sits exactly on the fitted surface has a near-zero residual, so removing it changes almost nothing.";
+  if (t.includes("link function") || t.includes("poisson"))
+    return "A GLM pairs an exponential-family response with a linear predictor through a link g, so g(mu) = X*beta. Writing the Poisson density in exponential-family form gives natural parameter log(mu), so the canonical link is the log. It makes observed and expected information coincide, and maps a positive mean onto the whole real line so the linear predictor is unconstrained.";
+  if (t.includes("assumptions"))
+    return "Linearity in the parameters: a wrong mean function biases the estimates and more data does not help. Zero-mean, exogenous errors: violation biases b_hat, the endogeneity problem. Constant variance and uncorrelated errors: OLS stays unbiased but is no longer efficient and the usual standard errors are wrong, so use robust errors or GLS. Full column rank: without it the estimator is not unique. Normality: needed only for exact small-sample t and F inference, not for unbiasedness or Gauss-Markov.";
+  if (t.includes("residual sum of squares") || t.includes("sigma squared"))
+    return "RSS = y^T M y with M = I - H, symmetric and idempotent of rank n - p, so RSS/sigma^2 is chi-squared on n - p degrees of freedom and independent of b_hat. Inverting that pivot gives a confidence interval for sigma^2 which is asymmetric, because the chi-squared distribution is.";
+  if (t.includes("t-test") || t.includes("t squared"))
+    return "For a single restriction t = (b_j - b_j0)/se(b_j) on n - p degrees of freedom, and the F-statistic with q = 1 is its square over the same variance estimate, so F = t^2 algebraically. The distributions agree, since the square of a t on n - p degrees of freedom is F(1, n - p). Only t is signed, so only t supports one-sided alternatives.";
+  return "Minimise S(b) = (y - Xb)^T (y - Xb). Setting the derivative to zero gives the normal equations X^T X b = X^T y, so b_hat = (X^T X)^-1 X^T y when X has full column rank. Unbiasedness needs only zero-mean errors with X fixed: neither constant variance nor normality is required for that part.";
+}
+
 function citationFor(q: Question): Citation {
   const exam = exams.find((e) => e.id === q.examId);
   return {
@@ -231,9 +251,14 @@ export const mockApi: SkriptraApi = {
     return {
       ...q,
       documentId: exam?.documentId,
-      solutionText: q.hasSolution
-        ? "Start from the log-likelihood ℓ(β, σ²) = −(n/2)log(2πσ²) − (1/2σ²)(y − Xβ)ᵀ(y − Xβ). Differentiating with respect to β and setting the score to zero recovers the normal equations XᵀXβ = Xᵀy, so β̂_ML = β̂_OLS. Differentiating with respect to σ² gives σ̂²_ML = RSS/n, whose expectation is ((n − p)/n)σ², biased downward by a factor of (n − p)/n."
-        : undefined,
+      // Keyed to the question, not one paragraph reused for all of them.
+      //
+      // The mock previously returned the same worked answer about maximum
+      // likelihood for every question, under a "Worked solution" heading citing
+      // a solution sheet page. Every question therefore showed a confident
+      // answer to a different question with false provenance attached, which is
+      // exactly what this product exists to prevent.
+      solutionText: q.hasSolution ? solutionFor(q.text) : undefined,
       solutionSourcePage: q.hasSolution ? q.sourcePage + 4 : undefined,
     };
   },

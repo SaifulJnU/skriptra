@@ -71,18 +71,28 @@ WHERE d.course_id = '22222222-2222-2222-2222-222222222222' AND d.status = 'index
 
 -- Question stems reused across years on purpose, so "similar questions" has
 -- something true to find rather than noise.
-CREATE TEMP TABLE stems (ord int, chap int, topic text, marks numeric, txt text, conf real) ON COMMIT DROP;
+CREATE TEMP TABLE stems (ord int, chap int, topic text, marks numeric, txt text, conf real, sol text) ON COMMIT DROP;
 INSERT INTO stems VALUES
- (1, 2, 'OLS',                 12, 'Derive the ordinary least squares estimator for beta in the linear model y = X*beta + epsilon and state the assumptions required for it to be unbiased.', 0.94),
- (2, 2, 'Gauss-Markov',        14, 'State and prove the Gauss-Markov theorem. Explain precisely what "best" means in the acronym BLUE.', 0.91),
- (3, 3, 'F-test',              10, 'Construct an F-test for the joint significance of two regression coefficients. Give the null distribution and the rejection region at level alpha = 0.05.', 0.93),
- (4, 3, 'Distribution theory', 12, 'Derive the distribution of the residual sum of squares under the normal linear model and use it to build a confidence interval for sigma squared.', 0.89),
- (5, 3, 't-test',               8, 'Explain the relationship between the t-test for a single coefficient and the corresponding F-test. Show that t squared equals F in this case.', 0.87),
- (6, 4, 'Residual analysis',   10, 'A researcher reports R squared = 0.94 but residual plots show clear curvature. Discuss what has gone wrong and which diagnostics you would run.', 0.85),
- (7, 4, 'Influence',            9, 'Define leverage and Cook''s distance. Explain how a point can have high leverage but low influence.', 0.90),
- (8, 5, 'Link functions',      11, 'Define the link function in a generalized linear model and derive the canonical link for the Poisson distribution.', 0.92),
- (9, 1, 'Assumptions',         10, 'State the assumptions of the classical linear model and explain the consequence of violating each one.', 0.88),
- (10,3, 'Partitioned regression', 13, 'Given the partitioned model y = X1*beta1 + X2*beta2 + epsilon, derive the Frisch-Waugh-Lovell result.', 0.58);
+ (1, 2, 'OLS', 12, 'Derive the ordinary least squares estimator for beta in the linear model y = X*beta + epsilon and state the assumptions required for it to be unbiased.', 0.94,
+  'Minimise S(b) = (y - Xb)^T (y - Xb). Differentiating and setting the derivative to zero gives the normal equations X^T X b = X^T y, so b_hat = (X^T X)^-1 X^T y whenever X^T X is invertible, which requires X to have full column rank. Unbiasedness needs only E[e] = 0 with X fixed: E[b_hat] = b + (X^T X)^-1 X^T E[e] = b. Neither constant variance nor normality is required for this part.'),
+ (2, 2, 'Gauss-Markov', 14, 'State and prove the Gauss-Markov theorem. Explain precisely what "best" means in the acronym BLUE.', 0.91,
+  'Under E[e] = 0, Var(e) = sigma^2 I and X of full column rank, OLS has the smallest variance among all linear unbiased estimators. Take any linear unbiased estimator b~ = Cy and write C = (X^T X)^-1 X^T + D. Unbiasedness forces DX = 0, and then Var(b~) = sigma^2 (X^T X)^-1 + sigma^2 D D^T, exceeding Var(b_hat) by a positive semi-definite matrix. "Best" means minimum variance within the class of linear unbiased estimators, not among all estimators. Normality is not required.'),
+ (3, 3, 'F-test', 10, 'Construct an F-test for the joint significance of two regression coefficients. Give the null distribution and the rejection region at level alpha = 0.05.', 0.93,
+  'Fit the unrestricted model and the model with both coefficients set to zero. With q = 2 restrictions, F = [(RSS_r - RSS_u)/q] / [RSS_u/(n - p)]. Under the null with normal errors this is F(q, n - p). Reject when F exceeds the upper 5 per cent point. The test weighs improvement in fit against the degrees of freedom spent, which is why a joint test can reject where two separate t-tests do not.'),
+ (4, 3, 'Distribution theory', 12, 'Derive the distribution of the residual sum of squares under the normal linear model and use it to build a confidence interval for sigma squared.', 0.89,
+  'Write RSS = y^T M y with M = I - X (X^T X)^-1 X^T, symmetric and idempotent of rank n - p. For normal errors RSS/sigma^2 is chi-squared on n - p degrees of freedom and independent of b_hat. Inverting the pivot gives [RSS / chi2_upper, RSS / chi2_lower] on n - p degrees of freedom. The interval is not symmetric, because the chi-squared distribution is not.'),
+ (5, 3, 't-test', 8, 'Explain the relationship between the t-test for a single coefficient and the corresponding F-test. Show that t squared equals F in this case.', 0.87,
+  'For one restriction t = (b_j - b_j0) / se(b_j), a t on n - p degrees of freedom. The F-statistic with q = 1 is the squared numerator over the same variance estimate, so F = t^2 algebraically. The distributions agree: the square of a t on n - p degrees of freedom is F(1, n - p). They differ only in that t is signed and supports one-sided alternatives, while F does not.'),
+ (6, 4, 'Residual analysis', 10, 'A researcher reports R squared = 0.94 but residual plots show clear curvature. Discuss what has gone wrong and which diagnostics you would run.', 0.85,
+  'R squared measures variance explained, not correctness of functional form. Curvature in residuals against fitted values means the mean function is misspecified, so the fit is high but biased. Plot residuals against each predictor to find the offending term, try a quadratic or a transformation, and use a RESET test. Misspecification also invalidates the standard errors, so the reported significance cannot be trusted either.'),
+ (7, 4, 'Influence', 9, 'Define leverage and Cook''s distance. Explain how a point can have high leverage but low influence.', 0.90,
+  'Leverage h_ii is the i-th diagonal of H = X (X^T X)^-1 X^T. It depends only on the predictors and measures how unusual an observation is in X-space. Cook''s distance combines leverage with the residual to measure the actual change in the fitted coefficients when the point is dropped. A point far out in X-space whose response lies exactly on the fitted surface has a near-zero residual, so removing it changes almost nothing: high leverage, low influence.'),
+ (8, 5, 'Link functions', 11, 'Define the link function in a generalized linear model and derive the canonical link for the Poisson distribution.', 0.92,
+  'A GLM has a random component from the exponential family, a linear predictor eta = X*beta, and a link g with g(mu) = eta. Writing the Poisson density in exponential-family form gives natural parameter theta = log(mu), so the canonical link is the log and the model is log(mu) = X*beta. The canonical link makes observed and expected information coincide, simplifying fitting, and maps a positive mean onto the whole real line so the linear predictor is unconstrained.'),
+ (9, 1, 'Assumptions', 10, 'State the assumptions of the classical linear model and explain the consequence of violating each one.', 0.88,
+  'Linearity in the parameters: a wrong mean function biases the estimates and more data does not help. Zero-mean errors with X exogenous: violation biases b_hat, the endogeneity problem. Constant variance: OLS stays unbiased but is no longer efficient and the usual standard errors are wrong, so use robust errors or GLS. Uncorrelated errors: same consequence, common in time series and clustered data. Full column rank of X: without it the estimator is not unique. Normality: not needed for unbiasedness or Gauss-Markov, only for exact t and F inference in small samples, where large samples lean on the CLT instead.'),
+ (10, 3, 'Partitioned regression', 13, 'Given the partitioned model y = X1*beta1 + X2*beta2 + epsilon, derive the Frisch-Waugh-Lovell result.', 0.58,
+  'Let M1 = I - X1 (X1^T X1)^-1 X1^T, the residual maker for X1. FWL states that b2_hat from the full regression equals the coefficient from regressing M1*y on M1*X2, and the residuals coincide. It follows from the normal equations by pre-multiplying by M1 to annihilate the X1 term. The reading is that a multiple regression coefficient is a simple regression on the part of the predictor orthogonal to everything else, which is what controlling for a variable means.');
 
 INSERT INTO questions (course_id, exam_id, document_id, number, ordinal, text, marks, source_page,
                        chapter_id, chapter_confidence, chapter_source, topic,
@@ -96,8 +106,10 @@ SELECT e.course_id, e.id, e.document_id,
        CASE WHEN (e.year + s.ord) % 11 = 0 THEN NULL ELSE s.conf END,
        CASE WHEN (e.year + s.ord) % 11 = 0 THEN NULL ELSE 'llm' END,
        CASE WHEN (e.year + s.ord) % 11 = 0 THEN NULL ELSE s.topic END,
-       CASE WHEN e.year IN (2024, 2022) AND e.term = 'winter' THEN NULL
-            ELSE 'Start from the log-likelihood and set the score to zero; the normal equations follow directly, and the ML variance estimator divides by n rather than n - p, which is why it is biased downward.' END,
+       -- The solution belongs to the stem, so it answers the question asked.
+       -- One shared paragraph made every question display a confident answer to
+       -- a different question, under a heading claiming an official source.
+       CASE WHEN e.year IN (2024, 2022) AND e.term = 'winter' THEN NULL ELSE s.sol END,
        CASE WHEN e.year IN (2024, 2022) AND e.term = 'winter' THEN NULL ELSE s.ord + 4 END
 FROM exams e
 CROSS JOIN stems s
