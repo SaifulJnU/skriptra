@@ -54,24 +54,9 @@ Three things, and they are the engineering substance of the project:
 
 ## Architecture
 
-```
-                    Web (React)            Flutter (later)
-                         |                       |
-                         +-----------+-----------+
-                                     |
-                              Go API  (/api/v1)
-                                     |
-        +----------------+-----------+-----------+----------------+
-        |                |                       |                |
-   PostgreSQL          NATS                  AI Provider      Redis
-   + pgvector            |                   (interface)
-                    Ingest workers               |
-                         |                +------+------+
-                  PDF text + page map      |             |
-                  extraction (go-fitz)    LLM        Embeddings
-                                           |             |
-                                     local/hosted  local/hosted
-```
+<p align="center">
+  <img src="docs/architecture.svg" alt="Skriptra system architecture: React and a planned Flutter client over a Go API, with PostgreSQL and pgvector, NATS, a pluggable AI provider interface and Redis, and ingest workers feeding the index" width="100%">
+</p>
 
 **The entire backend is Go.** Embeddings and generation are HTTP calls, vector
 search is SQL, and PDF text extraction with page coordinates is a Go library,
