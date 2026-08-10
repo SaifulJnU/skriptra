@@ -142,9 +142,13 @@ func (s *Store) ReplaceQuestions(ctx context.Context, documentID uuid.UUID, ques
 	var examID *uuid.UUID
 	if year != nil && term != nil {
 		var id uuid.UUID
+		// Both parameters are used twice with different types: $3 as the
+		// integer year and inside a string concatenation, $4 as the term enum
+		// and as text. Postgres cannot deduce one type for each, so every use
+		// is cast explicitly.
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO exams (course_id, document_id, year, term, title)
-			VALUES ($1, $2, $3, $4::term, $3 || ' — ' || initcap($4))
+			VALUES ($1, $2, $3::int, $4::term, $3::text || ' ' || initcap($4::text))
 			ON CONFLICT (course_id, year, term)
 			DO UPDATE SET document_id = EXCLUDED.document_id
 			RETURNING id`, courseID, documentID, *year, *term).Scan(&id); err != nil {
