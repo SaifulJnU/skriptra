@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUp, Database, FileText, Loader2, Mic, Sparkles, Square } from "lucide-react";
 import { api, usingMocks } from "@/lib/client";
 import { useVoiceInput } from "@/lib/useVoiceInput";
@@ -45,10 +45,12 @@ interface Turn {
 
 export default function Ask() {
   const { courseId = "" } = useParams();
+  const [params] = useSearchParams();
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const autoAsked = useRef(false);
 
   const busy = turns.some((t) => t.streaming);
 
@@ -62,6 +64,19 @@ export default function Ask() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns]);
+
+  // ?q=... runs a question on load, so an answer is a shareable link. Students
+  // send each other "look at this" far more readily than "go here, then type
+  // the following". The ref guards against re-running under StrictMode's
+  // double effect invocation in development.
+  useEffect(() => {
+    const q = params.get("q");
+    if (!q || autoAsked.current) return;
+    autoAsked.current = true;
+    void send(q);
+    // send is stable for this purpose; re-running on every render would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   async function send(question: string) {
     if (!question.trim() || busy) return;
