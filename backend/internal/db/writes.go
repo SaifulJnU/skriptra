@@ -184,6 +184,8 @@ func (s *Store) ReplaceQuestions(ctx context.Context, documentID uuid.UUID, ques
 	return ids, tx.Commit(ctx)
 }
 
+// ReplaceChunks rewrites a document's chunks in one transaction. Used by the
+// question path, where the count is bounded by the number of questions.
 func (s *Store) ReplaceChunks(ctx context.Context, documentID uuid.UUID, chunks []ingest.StoredChunk) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -196,7 +198,6 @@ func (s *Store) ReplaceChunks(ctx context.Context, documentID uuid.UUID, chunks 
 		Scan(&courseID); err != nil {
 		return err
 	}
-
 	if _, err := tx.Exec(ctx, `DELETE FROM chunks WHERE document_id = $1`, documentID); err != nil {
 		return err
 	}
@@ -219,9 +220,22 @@ func (s *Store) ReplaceChunks(ctx context.Context, documentID uuid.UUID, chunks 
 	}
 	rows.Close()
 
+	if err := insertChunks(ctx, tx, courseID, documentID, chunks, questionIDs); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// insertChunks writes a batch. Shared by the replace and append paths so the
+// column list and the chapter lookup exist in exactly one place.
+//
+// questionIDs is nil for passage indexing, where chunks belong to a page rather
+// than to a question.
+func insertChunks(ctx context.Context, tx pgx.Tx, courseID, documentID uuid.UUID,
+	chunks []ingest.StoredChunk, questionIDs []uuid.UUID) error {
 	for _, c := range chunks {
 		var questionID *uuid.UUID
-		if c.QuestionIndex >= 0 && c.QuestionIndex < len(questionIDs) {
+		if questionIDs != nil && c.QuestionIndex >= 0 && c.QuestionIndex < len(questionIDs) {
 			questionID = &questionIDs[c.QuestionIndex]
 		}
 		var chapterID *uuid.UUID
@@ -242,6 +256,36 @@ func (s *Store) ReplaceChunks(ctx context.Context, documentID uuid.UUID, chunks 
 			c.Text, c.Page, vectorLiteral(c.Embedding), "configured", len(c.Embedding)); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// ClearChunks removes a document's chunks, so a batched rewrite can start from
+// a clean slate without holding the whole document in memory.
+func (s *Store) ClearChunks(ctx context.Context, documentID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM chunks WHERE document_id = $1`, documentID)
+	return err
+}
+
+// AppendChunks inserts one batch. Used by the passage path, which streams a
+// long document rather than assembling it.
+func (s *Store) AppendChunks(ctx context.Context, documentID uuid.UUID, chunks []ingest.StoredChunk) error {
+	if len(chunks) == 0 {
+		return nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var courseID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT course_id FROM documents WHERE id = $1`, documentID).
+		Scan(&courseID); err != nil {
+		return err
+	}
+	if err := insertChunks(ctx, tx, courseID, documentID, chunks, nil); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }

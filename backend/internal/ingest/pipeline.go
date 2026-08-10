@@ -22,6 +22,10 @@ type Store interface {
 	ChaptersFor(ctx context.Context, courseID uuid.UUID) ([]Chapter, error)
 	ReplaceQuestions(ctx context.Context, documentID uuid.UUID, questions []StoredQuestion) ([]uuid.UUID, error)
 	ReplaceChunks(ctx context.Context, documentID uuid.UUID, chunks []StoredChunk) error
+	// ClearChunks and AppendChunks let a long document be written in batches,
+	// so memory stays flat rather than scaling with page count.
+	ClearChunks(ctx context.Context, documentID uuid.UUID) error
+	AppendChunks(ctx context.Context, documentID uuid.UUID, chunks []StoredChunk) error
 	SetQuestionEmbeddings(ctx context.Context, courseID uuid.UUID, ids []uuid.UUID, vectors [][]float32, model string) error
 	FinishDocument(ctx context.Context, documentID uuid.UUID, pageCount, questionCount int) error
 }
@@ -211,36 +215,103 @@ func (p *Pipeline) Run(ctx context.Context, job Job) error {
 	return nil
 }
 
+// Limits for the passage path.
+//
+// A 16 MB textbook took the whole Docker VM down: several hundred pages became
+// thousands of chunks, every chunk and every 768-float vector held in memory at
+// once, next to Postgres and a local model in the same VM. Exams are bounded by
+// their question count; a textbook is bounded by nothing.
+const (
+	// maxPassagePages caps how much of a very long document is indexed. Beyond
+	// this the document is rejected rather than half-indexed, because a corpus
+	// silently containing the first third of a textbook answers questions from
+	// it and stays quiet about the rest.
+	maxPassagePages = 600
+
+	// passageBatch is how many chunks are embedded and written at a time.
+	// Memory stays flat regardless of document length.
+	passageBatch = 32
+)
+
 // indexPassagesOnly handles notes and textbooks: no questions, but the text is
 // still worth retrieving over.
+//
+// Streams in batches rather than building the whole document in memory. The
+// previous version collected every chunk, then every vector, then wrote once,
+// so peak memory scaled with document size and a large enough upload killed the
+// process rather than failing.
 func (p *Pipeline) indexPassagesOnly(ctx context.Context, job Job, doc *ParsedDocument) error {
+	if len(doc.Pages) > maxPassagePages {
+		err := fmt.Errorf("%d pages exceeds the %d page limit for reference material; split the document or index the relevant chapters separately",
+			len(doc.Pages), maxPassagePages)
+		_ = p.store.FailDocument(ctx, job.DocumentID, err.Error())
+		return err
+	}
+
 	_ = p.store.SetStatus(ctx, job.DocumentID, "embedding", 0.7, "indexing passages")
 
-	var chunks []StoredChunk
-	var texts []string
-	for _, page := range doc.Pages {
-		for i, part := range chunkText(page.Text, 1200, 150) {
-			chunks = append(chunks, StoredChunk{
-				QuestionIndex: -1, Ordinal: i + 1, Text: part, Page: page.Number,
-			})
-			texts = append(texts, part)
-		}
-	}
-	if len(chunks) == 0 {
-		return p.store.FinishDocument(ctx, job.DocumentID, doc.PageCount, 0)
+	// Re-ingestion is idempotent: clear once, then append batch by batch.
+	if err := p.store.ClearChunks(ctx, job.DocumentID); err != nil {
+		return err
 	}
 
-	vectors, err := p.embedBatched(ctx, texts)
-	if err != nil {
+	var batch []StoredChunk
+	total := 0
+
+	flush := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		texts := make([]string, len(batch))
+		for i, c := range batch {
+			texts[i] = c.Text
+		}
+		vectors, err := p.embedder.Embed(ctx, texts)
+		if err != nil {
+			return err
+		}
+		for i := range batch {
+			batch[i].Embedding = vectors[i]
+		}
+		if err := p.store.AppendChunks(ctx, job.DocumentID, batch); err != nil {
+			return err
+		}
+		total += len(batch)
+		// Reuse the slice: the vectors are now the database's problem, not
+		// this process's.
+		batch = batch[:0]
+		return nil
+	}
+
+	for pageIdx, page := range doc.Pages {
+		for i, part := range chunkText(page.Text, 1200, 150) {
+			batch = append(batch, StoredChunk{
+				QuestionIndex: -1, Ordinal: i + 1, Text: part, Page: page.Number,
+			})
+			if len(batch) >= passageBatch {
+				if err := flush(); err != nil {
+					_ = p.store.FailDocument(ctx, job.DocumentID, "embedding: "+err.Error())
+					return err
+				}
+			}
+		}
+
+		// A long document spends minutes here, so report movement. Without it
+		// the dialog sits at one number and looks hung.
+		if pageIdx%10 == 0 {
+			_ = p.store.SetStatus(ctx, job.DocumentID, "embedding",
+				0.7+0.25*float64(pageIdx)/float64(len(doc.Pages)),
+				fmt.Sprintf("indexing page %d of %d", pageIdx+1, len(doc.Pages)))
+		}
+	}
+
+	if err := flush(); err != nil {
 		_ = p.store.FailDocument(ctx, job.DocumentID, "embedding: "+err.Error())
 		return err
 	}
-	for i := range chunks {
-		chunks[i].Embedding = vectors[i]
-	}
-	if err := p.store.ReplaceChunks(ctx, job.DocumentID, chunks); err != nil {
-		return err
-	}
+
+	p.log.Info("indexed as passages",
+		"document", job.DocumentID, "pages", doc.PageCount, "chunks", total)
 	return p.store.FinishDocument(ctx, job.DocumentID, doc.PageCount, 0)
 }
 
