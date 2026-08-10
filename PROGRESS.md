@@ -69,7 +69,11 @@ Verified by execution:
 - 21 Go tests pass across ingest, router and parser selection.
 - All read endpoints, `/ask` routing and analytics against a live seeded database.
 
-**Not yet executed:** a full upload through the worker to indexed questions. That path needs an embedding model, and the Ollama image was still downloading when the session ended. Everything it depends on is individually tested; the wiring between them is not.
+**Full ingestion verified on 10 Aug 2026.** `sample_exam.pdf` uploaded through the API, queued to NATS, consumed by the worker, and reached `indexed` with 6 questions extracted: correct numbers, marks and pages, chapters 1 to 5 assigned, and the administrative question left unclassified rather than forced into a chapter. Hybrid search over real `nomic-embed-text` vectors then ranked the F-test question first for a query sharing almost no vocabulary with it (0.721 dense, 0.000 sparse), so the match is semantic rather than lexical.
+
+That run also found two real bugs in the exam upsert that no unit test could have caught, because both packages were correct in isolation and the defect was in the wiring. Fixed in `5c3197a`.
+
+**Known weakness:** the keyword classifier put "Derive the ordinary least squares estimator for beta in the linear model" in chapter 1 (The Linear Model) rather than chapter 2 (Least Squares Estimation). Both chapters legitimately match. This is exactly what the LLM fallback is for, but no chat model was pulled during the test, so classification ran keyword-only. Pull a chat model and re-run to see whether the fallback resolves it, and use the eval harness to measure rather than guess.
 
 To finish that verification:
 
