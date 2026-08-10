@@ -17,7 +17,7 @@ import { formatPercent } from "@/lib/utils";
 /**
  * The `analyse` intent, rendered.
  *
- * These numbers come from a SQL aggregate, not from a language model — they are
+ * These numbers come from a SQL aggregate, not from a language model, they are
  * exact and instant. That distinction is the point of the whole architecture,
  * and it is why this page can state "187 questions" rather than "roughly 190".
  */
@@ -58,7 +58,7 @@ export default function Analytics() {
       <Card className="mb-6 p-6">
         <p className="text-sm text-secondary">
           <strong className="font-semibold" style={{ color: "var(--text-primary)" }}>
-            Chapter {top.chapter.number} — {top.chapter.title}
+            Chapter {top.chapter.number}, {top.chapter.title}
           </strong>{" "}
           is the most heavily tested material, accounting for{" "}
           <strong className="font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>

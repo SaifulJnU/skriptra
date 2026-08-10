@@ -6,7 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    // Must mirror `paths` in tsconfig.json — TypeScript resolves the alias for
+    // Must mirror `paths` in tsconfig.json, TypeScript resolves the alias for
     // the editor, Vite resolves it for the bundle, and they are separate.
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

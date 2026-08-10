@@ -103,7 +103,7 @@ func (s *Server) getExam(c *gin.Context) {
 }
 
 // listQuestions is the enumerate path. Filters are structured, applied in SQL,
-// and the result is exhaustive within the requested page — not a top-k sample.
+// and the result is exhaustive within the requested page, not a top-k sample.
 func (s *Server) listQuestions(c *gin.Context) {
 	id, ok := uuidParam(c, "courseId")
 	if !ok {

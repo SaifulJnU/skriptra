@@ -3,8 +3,8 @@
  *
  * The intent router below is a deliberately simplified version of the real one
  * that will live in Go. It is here so the UI is built against the *behaviour*
- * that matters — different question shapes take different paths and render
- * differently — rather than against a single generic "chat" response that would
+ * that matters, different question shapes take different paths and render
+ * differently, rather than against a single generic "chat" response that would
  * hide the whole design.
  */
 import type { AskEvent, AskRequest, SkriptraApi } from "@/lib/api";
@@ -87,37 +87,36 @@ function citationFor(q: Question): Citation {
  * Canned explanations, keyed by topic.
  *
  * There is no model behind this yet. The honest thing for a mock to do is
- * answer what it actually recognises and say plainly when it does not —
- * a mock that returns a confident essay for every input hides exactly the
+ * answer what it actually recognises and say plainly when it does not,  * a mock that returns a confident essay for every input hides exactly the
  * failure mode (answering off-topic from the wrong passages) that the real
  * system has to be tested against.
  */
 const EXPLANATIONS: { match: RegExp; text: string }[] = [
   {
     match: /\b(regression|linear model|what is the linear model)\b/,
-    text: `In this course, **regression** means modelling a response *y* as a linear combination of predictors plus noise: y = Xβ + ε.\n\nThe word "linear" refers to linearity **in the parameters β**, not in the predictors — y = β₀ + β₁x + β₂x² is still a linear model. X is the design matrix, β is what you estimate, and ε carries everything the predictors do not explain.\n\nChapter 1 sets out the assumptions on ε (zero mean, constant variance, uncorrelated) that everything later depends on. Chapter 2 estimates β; Chapter 3 does inference on it.`,
+    text: `In this course, **regression** means modelling a response *y* as a linear combination of predictors plus noise: y = Xβ + ε.\n\nThe word "linear" refers to linearity **in the parameters β**, not in the predictors, y = β₀ + β₁x + β₂x² is still a linear model. X is the design matrix, β is what you estimate, and ε carries everything the predictors do not explain.\n\nChapter 1 sets out the assumptions on ε (zero mean, constant variance, uncorrelated) that everything later depends on. Chapter 2 estimates β; Chapter 3 does inference on it.`,
   },
   {
     match: /\b(ols|least squares|gauss.?markov|blue)\b/,
-    text: `**Ordinary least squares** chooses β̂ to minimise the residual sum of squares (y − Xβ)ᵀ(y − Xβ), giving β̂ = (XᵀX)⁻¹Xᵀy whenever XᵀX is invertible.\n\nThe **Gauss-Markov theorem** says that under the standard assumptions — errors with mean zero, constant variance and no correlation — this estimator is BLUE: the *best linear unbiased* estimator, where "best" means smallest variance among all linear unbiased estimators.\n\nNote what it does *not* require: normality. That assumption is only needed for the distributional results in Chapter 3.`,
+    text: `**Ordinary least squares** chooses β̂ to minimise the residual sum of squares (y − Xβ)ᵀ(y − Xβ), giving β̂ = (XᵀX)⁻¹Xᵀy whenever XᵀX is invertible.\n\nThe **Gauss-Markov theorem** says that under the standard assumptions, errors with mean zero, constant variance and no correlation, this estimator is BLUE: the *best linear unbiased* estimator, where "best" means smallest variance among all linear unbiased estimators.\n\nNote what it does *not* require: normality. That assumption is only needed for the distributional results in Chapter 3.`,
   },
   {
     match: /\b(maximum likelihood|mle|likelihood)\b/,
-    text: `Maximum likelihood is used here because the model specifies a full parametric distribution for the errors — once ε ~ N(0, σ²I) is assumed, the likelihood is completely determined by β and σ².\n\nUnder that normality assumption the ML estimator of β coincides exactly with the OLS estimator, which is why the two approaches agree on the coefficients. They part company on the variance: the ML estimator of σ² divides by *n* rather than *n − p*, and is therefore **biased downward**.\n\nThat bias is why the unbiased estimator s² = RSS/(n − p) is the one used for inference.`,
+    text: `Maximum likelihood is used here because the model specifies a full parametric distribution for the errors, once ε ~ N(0, σ²I) is assumed, the likelihood is completely determined by β and σ².\n\nUnder that normality assumption the ML estimator of β coincides exactly with the OLS estimator, which is why the two approaches agree on the coefficients. They part company on the variance: the ML estimator of σ² divides by *n* rather than *n − p*, and is therefore **biased downward**.\n\nThat bias is why the unbiased estimator s² = RSS/(n − p) is the one used for inference.`,
   },
   {
     match: /\b(f.?test|t.?test|hypothesis|significance|p.?value|confidence)\b/,
-    text: `Hypothesis testing in the linear model compares a restricted model against an unrestricted one.\n\nThe **F-test** for q simultaneous restrictions uses F = [(RSS_r − RSS_u)/q] / [RSS_u/(n − p)], which is F(q, n − p) under the null. The **t-test** is the special case q = 1, and t² = F exactly in that case.\n\nBoth rely on normality of the errors — without it these are approximate, justified only by large-sample arguments.`,
+    text: `Hypothesis testing in the linear model compares a restricted model against an unrestricted one.\n\nThe **F-test** for q simultaneous restrictions uses F = [(RSS_r − RSS_u)/q] / [RSS_u/(n − p)], which is F(q, n − p) under the null. The **t-test** is the special case q = 1, and t² = F exactly in that case.\n\nBoth rely on normality of the errors, without it these are approximate, justified only by large-sample arguments.`,
   },
   {
-    // "cook" must be anchored to Cook's distance — a bare keyword matched
+    // "cook" must be anchored to Cook's distance, a bare keyword matched
     // "how do I cook biryani" and confidently returned a diagnostics lecture.
     match: /\b(residual|diagnostic|leverage|cook['’]?s distance|influential observation|outlier)\b/,
-    text: `Diagnostics ask whether the fitted model's assumptions actually hold.\n\n**Leverage** h_ii measures how unusual an observation's *predictor* values are — it depends only on X, not on y. **Cook's distance** combines leverage with the size of the residual to measure actual influence on the fitted coefficients.\n\nThis is why a high-leverage point can have low influence: if its response happens to sit exactly where the model predicts, removing it changes nothing.`,
+    text: `Diagnostics ask whether the fitted model's assumptions actually hold.\n\n**Leverage** h_ii measures how unusual an observation's *predictor* values are, it depends only on X, not on y. **Cook's distance** combines leverage with the size of the residual to measure actual influence on the fitted coefficients.\n\nThis is why a high-leverage point can have low influence: if its response happens to sit exactly where the model predicts, removing it changes nothing.`,
   },
   {
     match: /\b(glm|generalized linear|link function|logistic|poisson)\b/,
-    text: `A **generalized linear model** relaxes two things at once: the response need not be normal, and the mean need not be linear in the predictors directly.\n\nInstead a **link function** g connects them: g(μ) = Xβ. The canonical link comes from writing the distribution in exponential-family form — log for the Poisson, logit for the binomial, identity for the normal, which recovers ordinary regression as a special case.`,
+    text: `A **generalized linear model** relaxes two things at once: the response need not be normal, and the mean need not be linear in the predictors directly.\n\nInstead a **link function** g connects them: g(μ) = Xβ. The canonical link comes from writing the distribution in exponential-family form, log for the Poisson, logit for the binomial, identity for the normal, which recovers ordinary regression as a special case.`,
   },
 ];
 
@@ -130,11 +129,11 @@ function answerText(
   switch (intent) {
     case "enumerate": {
       const ch = chapters.find((c) => c.number === chapterNo);
-      return `Found **${matched.length} questions**${ch ? ` in Chapter ${ch.number} — ${ch.title}` : ""}, across ${new Set(matched.map((q) => q.year)).size} exam years.\n\nThey are listed below in reverse chronological order. This is an exhaustive result from the question index, not a sample.`;
+      return `Found **${matched.length} questions**${ch ? ` in Chapter ${ch.number}, ${ch.title}` : ""}, across ${new Set(matched.map((q) => q.year)).size} exam years.\n\nThey are listed below in reverse chronological order. This is an exhaustive result from the question index, not a sample.`;
     }
     case "analyse": {
       const top = [...chapterFrequency].sort((a, b) => b.questionCount - a.questionCount)[0];
-      return `**Chapter ${top.chapter.number} — ${top.chapter.title}** is the most frequently tested, accounting for ${(top.share * 100).toFixed(0)}% of all indexed questions and appearing in ${top.examCount} of ${exams.length} exams.\n\nSee the chart on the Analytics tab for the full distribution and the year-by-year breakdown.`;
+      return `**Chapter ${top.chapter.number}, ${top.chapter.title}** is the most frequently tested, accounting for ${(top.share * 100).toFixed(0)}% of all indexed questions and appearing in ${top.examCount} of ${exams.length} exams.\n\nSee the chart on the Analytics tab for the full distribution and the year-by-year breakdown.`;
     }
     case "similar":
       return `Found ${matched.length} closely related questions across previous years. The strongest matches reuse the same derivation with different notation.`;
@@ -143,8 +142,8 @@ function answerText(
       if (hit) return hit.text;
       // Say so, rather than returning a confident answer to a different
       // question. The real system must refuse the same way when retrieval
-      // comes back empty — that behaviour is measured by the eval harness.
-      return `**No indexed passage covers that yet.**\n\nThis build is running on mock data — there is no model and no document index behind it. The mock only has worked explanations for the core Linear Models topics: regression and the linear model, OLS and Gauss-Markov, maximum likelihood, hypothesis testing, diagnostics, and GLMs.\n\nOnce the Go backend and the ingestion pipeline are running, this answer comes from real retrieval over uploaded papers — and when the corpus genuinely does not cover a question, it should still say so instead of inventing one.`;
+      // comes back empty, that behaviour is measured by the eval harness.
+      return `**No indexed passage covers that yet.**\n\nThis build is running on mock data, there is no model and no document index behind it. The mock only has worked explanations for the core Linear Models topics: regression and the linear model, OLS and Gauss-Markov, maximum likelihood, hypothesis testing, diagnostics, and GLMs.\n\nOnce the Go backend and the ingestion pipeline are running, this answer comes from real retrieval over uploaded papers, and when the corpus genuinely does not cover a question, it should still say so instead of inventing one.`;
     }
   }
 }
@@ -229,7 +228,7 @@ export const mockApi: SkriptraApi = {
       ...q,
       documentId: exam?.documentId,
       solutionText: q.hasSolution
-        ? "Start from the log-likelihood ℓ(β, σ²) = −(n/2)log(2πσ²) − (1/2σ²)(y − Xβ)ᵀ(y − Xβ). Differentiating with respect to β and setting the score to zero recovers the normal equations XᵀXβ = Xᵀy, so β̂_ML = β̂_OLS. Differentiating with respect to σ² gives σ̂²_ML = RSS/n, whose expectation is ((n − p)/n)σ² — biased downward by a factor of (n − p)/n."
+        ? "Start from the log-likelihood ℓ(β, σ²) = −(n/2)log(2πσ²) − (1/2σ²)(y − Xβ)ᵀ(y − Xβ). Differentiating with respect to β and setting the score to zero recovers the normal equations XᵀXβ = Xᵀy, so β̂_ML = β̂_OLS. Differentiating with respect to σ² gives σ̂²_ML = RSS/n, whose expectation is ((n − p)/n)σ², biased downward by a factor of (n − p)/n."
         : undefined,
       solutionSourcePage: q.hasSolution ? q.sourcePage + 4 : undefined,
     };

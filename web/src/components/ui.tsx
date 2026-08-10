@@ -2,7 +2,7 @@
  * Small presentational primitives.
  *
  * Loading, empty and error states are first-class components rather than
- * inline afterthoughts — they are the states a user actually hits on a slow
+ * inline afterthoughts, they are the states a user actually hits on a slow
  * connection or an empty course, and designing them once here keeps every page
  * honest about them.
  */

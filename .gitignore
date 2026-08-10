@@ -16,7 +16,7 @@ dist/
 *.test
 *.out
 
-# python parser sidecar (phase 2 — see docs/00-DESIGN.md 4.2)
+# python parser sidecar (phase 2, see docs/00-DESIGN.md 4.2)
 __pycache__/
 *.py[cod]
 .venv/

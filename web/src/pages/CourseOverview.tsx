@@ -40,7 +40,7 @@ export default function CourseOverview() {
                 course.data.code,
                 course.data.institution,
                 course.data.yearRange &&
-                  `${course.data.yearRange.from}–${course.data.yearRange.to}`,
+                  `${course.data.yearRange.from}, ${course.data.yearRange.to}`,
               ]
                 .filter(Boolean)
                 .join(" · ")
@@ -68,7 +68,7 @@ export default function CourseOverview() {
               Indexing {ingesting.length} document{ingesting.length > 1 ? "s" : ""}
             </p>
             <p className="mt-0.5 truncate text-xs text-tertiary">
-              {ingesting.map((d) => d.filename).join(", ")} — questions become searchable as each
+              {ingesting.map((d) => d.filename).join(", ")}, questions become searchable as each
               finishes.
             </p>
           </div>
@@ -86,7 +86,7 @@ export default function CourseOverview() {
           <p className="text-sm text-secondary">
             Most tested:{" "}
             <strong className="font-semibold" style={{ color: "var(--text-primary)" }}>
-              Chapter {top.chapter.number} — {top.chapter.title}
+              Chapter {top.chapter.number}, {top.chapter.title}
             </strong>{" "}
             at {formatPercent(top.share)} of all questions.{" "}
             <Link

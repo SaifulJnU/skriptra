@@ -1,4 +1,4 @@
-# Skriptra — Design Document
+# Skriptra, Design Document
 
 Version 1 · 9 August 2026
 
@@ -17,7 +17,7 @@ The questions students actually want answered are not "find me a document":
 - *"Give me all Chapter 3 questions from the last five years."*
 - *"Has a question like this appeared before?"*
 - *"Which chapters are tested most often?"*
-- *"Why is maximum likelihood used in this question — explain it from my lecture notes."*
+- *"Why is maximum likelihood used in this question, explain it from my lecture notes."*
 
 Three of those four are not retrieval questions at all. They are **structured queries over extracted entities**. That observation drives the whole architecture.
 
@@ -53,7 +53,7 @@ These are the parts worth building carefully, because they are what separate thi
 
 ### 2.1 Chapter resolution
 
-**Problem.** A user asks for "Chapter 2 questions". Nothing in an exam question's text says "Chapter 2". Embedding similarity cannot recover this, because chapter membership is not a semantic property of the question — it is a property of the *course structure* the question belongs to.
+**Problem.** A user asks for "Chapter 2 questions". Nothing in an exam question's text says "Chapter 2". Embedding similarity cannot recover this, because chapter membership is not a semantic property of the question, it is a property of the *course structure* the question belongs to.
 
 **Approach.**
 
@@ -61,7 +61,7 @@ These are the parts worth building carefully, because they are what separate thi
 2. At ingest, split each paper into individual questions, then **classify every question against that taxonomy**. Classification uses the topic keywords plus an LLM pass, and stores a confidence score.
 3. At query time, a resolver maps chapter references in natural language ("chapter two", "Kapitel 2", "the MLE chapter") onto `chapter_id` **filters**, not embeddings.
 
-**Consequence.** Chapter is a first-class column with an index, not a hope. Low-confidence classifications are surfaced in the UI for correction rather than hidden — human-in-the-loop is cheaper than perfect classification.
+**Consequence.** Chapter is a first-class column with an index, not a hope. Low-confidence classifications are surfaced in the UI for correction rather than hidden, human-in-the-loop is cheaper than perfect classification.
 
 ### 2.2 The query router
 
@@ -71,7 +71,7 @@ These are the parts worth building carefully, because they are what separate thi
 
 | Intent | Example | Path |
 |---|---|---|
-| `enumerate` | "all Chapter 3 questions from 2019–2025" | SQL over `questions` with filters — **exhaustive, ordered, paginated** |
+| `enumerate` | "all Chapter 3 questions from 2019-2025" | SQL over `questions` with filters, **exhaustive, ordered, paginated** |
 | `explain` | "why is MLE used here" | Hybrid retrieval → LLM with citations |
 | `similar` | "questions like this one" | Vector k-NN on the question embedding, excluding self |
 | `analyse` | "which chapters are tested most" | SQL aggregate → chart, no LLM in the path |
@@ -85,7 +85,7 @@ These are the parts worth building carefully, because they are what separate thi
 
 **Approach.** `eval/` holds a golden dataset of real question/answer pairs drawn from actual course material, plus:
 
-- **Retrieval metrics:** recall@k, MRR, nDCG — did the right chunk come back at all?
+- **Retrieval metrics:** recall@k, MRR, nDCG, did the right chunk come back at all?
 - **Answer metrics:** groundedness (is every claim supported by a retrieved chunk?), citation accuracy (do the cited pages actually contain the claim?), refusal correctness (does it decline when the corpus does not contain the answer?).
 - **A CI gate.** A pull request that drops recall@5 below the committed baseline **fails the build**.
 
@@ -143,7 +143,7 @@ configuration -> dependency initialization -> interfaces -> application
 
 There is no `if production { openai } else { ollama }` anywhere. Switching from a local model to a hosted one is `LLM_PROVIDER=...` and a restart, with no change to business logic.
 
-**One caveat that must be designed for now:** embedding dimensions differ per model (e.g. 768 vs 1536 vs 3072). Changing `EMBEDDING_MODEL` invalidates every stored vector. The schema therefore records the embedding model and dimension on each chunk, and re-embedding is an explicit, resumable background job — not a silent corruption.
+**One caveat that must be designed for now:** embedding dimensions differ per model (e.g. 768 vs 1536 vs 3072). Changing `EMBEDDING_MODEL` invalidates every stored vector. The schema therefore records the embedding model and dimension on each chunk, and re-embedding is an explicit, resumable background job, not a silent corruption.
 
 ### 3.3 Ingestion pipeline
 
@@ -174,7 +174,7 @@ Hybrid, in a single SQL statement:
 - **Dense:** cosine distance over pgvector.
 - **Sparse:** PostgreSQL full-text search over the same chunks.
 - **Fusion:** reciprocal rank fusion, computed in SQL.
-- **Filters:** `course_id`, `chapter_id`, `year`, `document_type` — applied as `WHERE` clauses, not post-filtering.
+- **Filters:** `course_id`, `chapter_id`, `year`, `document_type`, applied as `WHERE` clauses, not post-filtering.
 - **Source priority:** a per-source weight, so a user's own notes can outrank a shared textbook when both match.
 
 ---
@@ -188,14 +188,14 @@ Hybrid, in a single SQL statement:
 **What Qdrant genuinely does better:**
 
 - **Filterable HNSW.** Qdrant inserts extra graph links based on payload indexes, so approximate search stays accurate under selective filters. pgvector's HNSW filters after searching, which degrades recall; version 0.8's iterative index scans mitigate this but do not eliminate it.
-- **Product quantization with automatic rescoring** — compressed vectors in RAM, originals on disk. pgvector has `halfvec` and binary quantization but no PQ.
+- **Product quantization with automatic rescoring**: compressed vectors in RAM, originals on disk. pgvector has `halfvec` and binary quantization but no PQ.
 - **Native multi-vector / late-interaction (ColBERT MaxSim) scoring.**
 - **Native sparse vectors with server-side RRF/DBSF fusion.**
 - **True horizontal sharding and replication.**
 
 **Why pgvector wins here anyway:**
 
-- The corpus is on the order of 200k chunks. A chapter filter reduces the candidate set to a few thousand rows, where an **exact** scan is both faster and more accurate than any approximate index. At this scale *the filter is the optimisation*, and filtered-HNSW recall — Qdrant's real advantage — does not bite until corpora two orders of magnitude larger.
+- The corpus is on the order of 200k chunks. A chapter filter reduces the candidate set to a few thousand rows, where an **exact** scan is both faster and more accurate than any approximate index. At this scale *the filter is the optimisation*, and filtered-HNSW recall, Qdrant's real advantage, does not bite until corpora two orders of magnitude larger.
 - Retrieval results need joins, aggregates and window functions. The `enumerate` and `analyse` intents in §2.2 are SQL queries, not vector queries. Splitting the store would mean either duplicating relational data into the vector database or doing two round trips and joining in application code.
 - One ACID transaction covers `questions` and `chunks`. No dual writes, no sync lag, no "the index thinks this document still exists".
 - One backup, one migration path, one connection pool to operate.
@@ -210,28 +210,28 @@ The reflex is that RAG means Python. Component by component, that turns out to b
 
 | Component | Language needed |
 |---|---|
-| LLM calls | Go — it is an HTTP request |
-| **Embeddings** | Go — also an HTTP request to Ollama or a hosted endpoint |
+| LLM calls | Go, it is an HTTP request |
+| **Embeddings** | Go, also an HTTP request to Ollama or a hosted endpoint |
 | Vector search, ranking, fusion | SQL |
 | Chunking, dedup, orchestration, streaming | Go |
-| Text + coordinates from digital PDFs | Go — `go-fitz` (MuPDF) returns text with page positions, which is exactly what citations need |
-| **OCR of scanned papers** | Python, realistically — modern OCR (Surya, PaddleOCR, docTR) has no Go equivalent |
-| **Layout analysis, formulas → LaTeX** | Python — effectively no Go ecosystem |
+| Text + coordinates from digital PDFs | Go, `go-fitz` (MuPDF) returns text with page positions, which is exactly what citations need |
+| **OCR of scanned papers** | Python, realistically, modern OCR (Surya, PaddleOCR, docTR) has no Go equivalent |
+| **Layout analysis, formulas → LaTeX** | Python, effectively no Go ecosystem |
 
 Only the last two genuinely need Python, and both are already deferred to phase 2 (§5.2). German university exam PDFs from roughly 2020 onward are usually digitally generated rather than scanned, so the first corpus is expected not to need OCR at all.
 
-Being single-language buys real things at this budget: one container, one dependency tree, one build pipeline, one debugging story. It also produces a more distinctive result — nearly every RAG portfolio project is Python, so a production-shaped RAG system in Go is a differentiator, and it fits the backend-engineer identity this project is meant to prove rather than an AI-engineer pivot.
+Being single-language buys real things at this budget: one container, one dependency tree, one build pipeline, one debugging story. It also produces a more distinctive result, nearly every RAG portfolio project is Python, so a production-shaped RAG system in Go is a differentiator, and it fits the backend-engineer identity this project is meant to prove rather than an AI-engineer pivot.
 
 **The parser boundary is built; only the Python implementation is not.** `backend/internal/ingest` defines `DocumentParser` plus a `Chain` that selects an implementation **per document**, not per deployment:
 
-- Each parser declares `Capabilities` — text layer, OCR, layout, formulas, and whether it runs in-process.
+- Each parser declares `Capabilities`, text layer, OCR, layout, formulas, and whether it runs in-process.
 - A cheap `Probe` of the first pages decides what the document actually requires.
 - The Chain picks the cheapest capable parser: a digital PDF takes the in-process Go path and never pays for a sidecar; a scan routes to whatever can read it.
-- With no OCR parser registered, a scan fails with `ErrNoCapableParser` and a message naming the reason — an actionable deployment gap, not a silent empty extraction.
+- With no OCR parser registered, a scan fails with `ErrNoCapableParser` and a message naming the reason, an actionable deployment gap, not a silent empty extraction.
 
 So the answer to "Go or Python?" is **both, resolved per document at runtime**. Adding Python means writing one adapter and registering it; nothing in the ingestion pipeline changes, because nothing in it knows which implementation ran. Selection behaviour is covered by tests in `parser_test.go`.
 
-This is the same discipline as `VectorStore` (§4.1) and the provider interfaces (§3.2): polyglot **by necessity, not by default**. The cost of a second language — another toolchain, dependency tree, CI path and cross-language debugging story — is real, so it is paid only when a document demands it.
+This is the same discipline as `VectorStore` (§4.1) and the provider interfaces (§3.2): polyglot **by necessity, not by default**. A second language costs another toolchain, another dependency tree, another CI path and a cross-language debugging story. That cost is real, so it is paid only when a document demands it.
 
 **Trigger to build the Python adapter:** the corpus contains scanned or photographed papers, or formulas must be extracted as LaTeX rather than as approximate text.
 
@@ -261,7 +261,7 @@ The frontend renders permissions; it never decides them. Every request is author
 
 Voice input · vision model for formula/figure extraction · bounding-box citation highlighting (page-level is sufficient) · full multi-user auth · the personal-notes / interview-prep corpus mode · Kubernetes · Flutter · the Qdrant adapter.
 
-Each is real. Each is also how a six-week project becomes a six-month project that never ships. The working budget is roughly 50–60 hours across six weeks.
+Each is real. Each is also how a six-week project becomes a six-month project that never ships. The working budget is roughly 50-60 hours across six weeks.
 
 ### 5.3 Copyright
 
@@ -273,4 +273,4 @@ Universities generally hold rights over their exam papers. The public demo uses 
 
 - Does question segmentation need a layout model, or is a rule-based splitter over "Aufgabe N / Question N" headings sufficient for the first corpus? *Try rules first; measure with the eval set.*
 - Is chapter classification better as keyword-first with LLM fallback, or LLM-first? *Measure both; the eval harness exists to answer exactly this.*
-- German and English material in one corpus — one multilingual embedding model, or per-language models with a language column? *Start multilingual; revisit if recall on German queries lags.*
+- German and English material in one corpus: one multilingual embedding model, or per-language models with a language column? *Start multilingual; revisit if recall on German queries lags.*

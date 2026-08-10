@@ -11,16 +11,16 @@ import { examLabel } from "@/lib/utils";
 /**
  * Explains what the router decided, in the user's language.
  *
- * Showing the intent is not debug output — it is how the product earns trust.
+ * Showing the intent is not debug output: it is how the product earns trust.
  * "Looked up 187 questions" and "read 5 passages and wrote an answer" are very
  * different claims, and a student revising for an exam deserves to know which
  * one they just got.
  */
 const INTENT_COPY: Record<QueryIntent, { label: string; detail: string }> = {
-  enumerate: { label: "Exhaustive lookup", detail: "Answered from the question index — complete, not a sample" },
+  enumerate: { label: "Exhaustive lookup", detail: "Answered from the question index, complete, not a sample" },
   explain: { label: "Explained from sources", detail: "Retrieved passages, then generated an answer" },
   similar: { label: "Similarity search", detail: "Matched against question embeddings" },
-  analyse: { label: "Statistics", detail: "Computed directly from the database — no model involved" },
+  analyse: { label: "Statistics", detail: "Computed directly from the database, no model involved" },
   hybrid: { label: "Lookup + explanation", detail: "Selected questions, then explained them" },
 };
 
@@ -51,7 +51,7 @@ export default function Ask() {
 
   const busy = turns.some((t) => t.streaming);
 
-  // Dictation fills the composer rather than sending on its own — a
+  // Dictation fills the composer rather than sending on its own, a
   // mis-transcribed question should be correctable before it is asked.
   const voice = useVoiceInput();
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function Ask() {
         <div className="mb-6 rounded-[var(--radius-card)] border border-dashed px-4 py-3">
           <p className="text-xs text-secondary">
             <strong className="font-semibold">Mock data.</strong> No model and no document index
-            are connected yet — lookups and statistics are real queries over sample data, but
+            are connected yet, lookups and statistics are real queries over sample data, but
             explanations come from a small set of prepared answers and will say so when a question
             falls outside them.
           </p>
@@ -312,7 +312,7 @@ export default function Ask() {
             className={`mt-2 px-2 text-xs ${voice.error ? "text-red-500" : "text-tertiary"}`}
             role="status"
           >
-            {voice.error ?? "Listening — speak your question, then press the mic again to stop."}
+            {voice.error ?? "Listening, speak your question, then press the mic again to stop."}
           </p>
         )}
         {!voice.supported && (
@@ -325,7 +325,7 @@ export default function Ask() {
   );
 }
 
-/** Minimal inline markdown — bold only. Sources render as real links, not markdown. */
+/** Minimal inline markdown, bold only. Sources render as real links, not markdown. */
 function renderInline(text: string): string {
   return text
     .replace(/&/g, "&amp;")

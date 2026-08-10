@@ -189,8 +189,7 @@ func scanQuestions(rows pgx.Rows) ([]domain.Question, error) {
 
 // ListQuestions is the `enumerate` path: exhaustive, ordered and paginated.
 //
-// Filters are composed as SQL predicates rather than applied after the fact —
-// a request for every Chapter 3 question must return every Chapter 3 question,
+// Filters are composed as SQL predicates rather than applied after the fact, // a request for every Chapter 3 question must return every Chapter 3 question,
 // which top-k retrieval structurally cannot guarantee.
 func (s *Store) ListQuestions(ctx context.Context, courseID uuid.UUID, f domain.QuestionFilters, examID *uuid.UUID) ([]domain.Question, int, error) {
 	where := []string{"q.course_id = $1"}
@@ -380,8 +379,7 @@ func (s *Store) ChapterFrequency(ctx context.Context, courseID uuid.UUID, yearFr
 		return nil, err
 	}
 
-	// Total is every question in the course, including unclassified ones —
-	// shares must not silently sum to 100% while questions are missing.
+	// Total is every question in the course, including unclassified ones, 	// shares must not silently sum to 100% while questions are missing.
 	if err := s.pool.QueryRow(ctx,
 		`SELECT count(*) FROM questions WHERE course_id = $1`, courseID).Scan(&resp.TotalQuestions); err != nil {
 		return nil, err

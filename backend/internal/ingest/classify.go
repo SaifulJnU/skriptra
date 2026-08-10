@@ -216,7 +216,7 @@ func extractJSON(s string) string {
 }
 
 // normaliseForMatch lowercases and reduces punctuation to spaces so that
-// "Gauss-Markov", "gauss markov" and "Gauss–Markov" all match.
+// "Gauss-Markov", "gauss markov" and "Gauss, Markov" all match.
 func normaliseForMatch(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))

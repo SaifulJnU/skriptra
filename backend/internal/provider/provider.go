@@ -137,7 +137,7 @@ var (
 // ---------------------------------------------------------------------------
 
 // Factories are registered by adapter packages in their init(), so adding a
-// provider means adding a file — never editing a switch statement in the
+// provider means adding a file, never editing a switch statement in the
 // application.
 type (
 	LLMFactory      func(cfg Settings) (LLM, error)

@@ -14,7 +14,7 @@ import { examLabel } from "@/lib/utils";
 
 /**
  * The `enumerate` surface. Filters live in the URL so a filtered list is
- * shareable and survives a refresh — students send each other links like
+ * shareable and survives a refresh, students send each other links like
  * "chapter 3, last three years".
  */
 export default function Questions() {
@@ -54,7 +54,7 @@ export default function Questions() {
   return (
     <div className="animate-in">
       <PageHeader
-        title={activeChapter ? `Chapter ${activeChapter.number} — ${activeChapter.title}` : "Questions"}
+        title={activeChapter ? `Chapter ${activeChapter.number}, ${activeChapter.title}` : "Questions"}
         subtitle={
           questions.data
             ? `${questions.data.meta.total} questions${year ? ` from ${year}` : " across all years"}`

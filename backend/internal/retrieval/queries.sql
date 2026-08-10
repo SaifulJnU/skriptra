@@ -9,7 +9,7 @@
 -- plausible.
 
 -- name: EnumerateQuestions :many
--- INTENT `enumerate` — "give me ALL chapter 3 questions".
+-- INTENT `enumerate`, "give me ALL chapter 3 questions".
 -- Exhaustive, ordered, paginated. No vectors involved. Top-k retrieval cannot
 -- answer this correctly and is not asked to.
 SELECT q.id, q.number, q.text, q.marks, q.source_page,
@@ -29,7 +29,7 @@ ORDER BY e.year DESC, e.term, q.ordinal
 LIMIT @page_size OFFSET @page_offset;
 
 -- name: ChapterFrequency :many
--- INTENT `analyse` — "which chapters are tested most often".
+-- INTENT `analyse`, "which chapters are tested most often".
 -- A pure aggregate. The LLM is never in this path, so the numbers are exact and
 -- the response is instant. This is what makes Skriptra more than a chatbot.
 SELECT ch.id, ch.number, ch.title,
@@ -46,7 +46,7 @@ GROUP BY ch.id, ch.number, ch.title
 ORDER BY ch.number;
 
 -- name: SimilarQuestions :many
--- INTENT `similar` — "questions like this one, across years".
+-- INTENT `similar`, "questions like this one, across years".
 -- Question-level k-NN, excluding self. Unit of similarity is the whole
 -- question, which is why question_embeddings is separate from chunks.
 SELECT q.id, q.number, q.text, q.source_page,
@@ -67,7 +67,7 @@ ORDER BY qe.embedding <=> ref.embedding
 LIMIT @limit_n;
 
 -- name: HybridSearch :many
--- INTENT `explain` — retrieve passages to ground an answer.
+-- INTENT `explain`, retrieve passages to ground an answer.
 --
 -- Dense (pgvector cosine) + sparse (Postgres full-text) fused with reciprocal
 -- rank fusion, all in one statement and one round trip.
@@ -76,7 +76,7 @@ LIMIT @limit_n;
 -- ranking, not as post-filtering. This is the single most important line in the
 -- file. A selective chapter filter cuts the candidate set to a few thousand
 -- rows, where an exact scan is both faster and more accurate than an
--- approximate index — at this corpus size the filter IS the optimisation, which
+-- approximate index, at this corpus size the filter IS the optimisation, which
 -- is precisely why a dedicated vector database is not needed yet.
 WITH params AS (
     SELECT @course_id::uuid       AS course_id,

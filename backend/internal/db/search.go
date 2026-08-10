@@ -17,8 +17,7 @@ import (
 // The important detail is `filtered`: structured filters are applied as a
 // WHERE clause BEFORE ranking, not as post-filtering. At this corpus size a
 // selective chapter filter cuts the candidate set to a few thousand rows,
-// where an exact scan beats an approximate index on both latency and recall —
-// the filter is the optimisation, which is why a dedicated vector database
+// where an exact scan beats an approximate index on both latency and recall, // the filter is the optimisation, which is why a dedicated vector database
 // buys nothing yet.
 func (s *Store) HybridSearch(
 	ctx context.Context,

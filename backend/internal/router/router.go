@@ -28,7 +28,7 @@ type Decision struct {
 	Intent domain.QueryIntent
 	// ChapterNumber is resolved from the query text when present. This is the
 	// step that turns "chapter two" into a WHERE clause instead of an
-	// embedding — chapter membership is a property of course structure, not a
+	// embedding, chapter membership is a property of course structure, not a
 	// semantic property of the question text.
 	ChapterNumber *int
 	YearFrom      *int
@@ -49,7 +49,7 @@ var (
 	reChapterDigit = regexp.MustCompile(`(?i)\b(?:chapter|kapitel|ch\.?|kap\.?)\s*(\d{1,2})\b`)
 	reChapterWord  = regexp.MustCompile(`(?i)\b(?:chapter|kapitel)\s+([a-zäöüß]+)`)
 
-	reYearRange = regexp.MustCompile(`\b(19|20)(\d{2})\s*(?:-|–|to|bis)\s*(19|20)(\d{2})\b`)
+	reYearRange = regexp.MustCompile(`\b(19|20)(\d{2})\s*(?:-|, |to|bis)\s*(19|20)(\d{2})\b`)
 	reYear      = regexp.MustCompile(`\b(19|20)(\d{2})\b`)
 	reLastNYear = regexp.MustCompile(`(?i)\blast\s+(\d{1,2}|two|three|four|five|ten)\s+years?\b`)
 )
@@ -91,7 +91,7 @@ func Route(question string, chapters []Chapter, currentYear int) Decision {
 		d.Confidence = 0.85
 
 	case wantsList && wantsExplanation:
-		// "explain the most common chapter 3 question" — select, then explain.
+		// "explain the most common chapter 3 question", select, then explain.
 		d.Intent = domain.IntentHybrid
 		d.Confidence = 0.75
 

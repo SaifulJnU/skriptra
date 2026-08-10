@@ -16,7 +16,7 @@ export default function Dashboard() {
     <div className="animate-in">
       <PageHeader
         title="Your courses"
-        subtitle="Upload past papers once — then search, compare and ask across every year."
+        subtitle="Upload past papers once, then search, compare and ask across every year."
         actions={
           <Button>
             <Upload size={15} /> Upload paper

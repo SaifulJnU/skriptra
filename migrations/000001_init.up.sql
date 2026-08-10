@@ -202,7 +202,7 @@ CREATE TABLE chunks (
 -- Filters are applied as WHERE clauses, never as post-filtering. At this corpus
 -- size a selective chapter filter reduces the candidate set to a few thousand
 -- rows, where an exact scan beats an approximate index on both speed and
--- recall — the filter IS the optimisation.
+-- recall, the filter IS the optimisation.
 CREATE INDEX chunks_course_chapter_idx ON chunks (course_id, chapter_id);
 CREATE INDEX chunks_document_idx       ON chunks (document_id, ordinal);
 CREATE INDEX chunks_question_idx       ON chunks (question_id);

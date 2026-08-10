@@ -2,7 +2,7 @@
 //
 // Environment-based, always. Locally the values come from .env.local; in
 // production they come from real environment variables and secrets. The code
-// path is identical — the difference between a laptop and a cluster is
+// path is identical, the difference between a laptop and a cluster is
 // configuration and infrastructure, never a branch in the application.
 package config
 
@@ -40,7 +40,7 @@ type Config struct {
 // Load reads configuration from the environment and validates it.
 //
 // Validation happens once, at startup, and fails loudly. A misconfigured
-// provider should stop the process immediately — not surface as a confusing
+// provider should stop the process immediately, not surface as a confusing
 // 500 on the first user question.
 func Load() (*Config, error) {
 	c := &Config{
@@ -96,7 +96,7 @@ func (c *Config) validate() error {
 	const schemaDimensions = 768
 	if c.Embedding.Dimensions != schemaDimensions {
 		problems = append(problems, fmt.Sprintf(
-			"EMBEDDING_DIMENSIONS is %d but the schema expects %d — "+
+			"EMBEDDING_DIMENSIONS is %d but the schema expects %d, "+
 				"changing the embedding model requires a migration and a re-embed",
 			c.Embedding.Dimensions, schemaDimensions))
 	}
@@ -126,7 +126,7 @@ func requiresAPIKey(name string) bool {
 	}
 }
 
-// IsLocal reports whether inference stays on this machine — surfaced in the UI
+// IsLocal reports whether inference stays on this machine, surfaced in the UI
 // so a user can see at a glance that nothing left the device.
 func (c *Config) IsLocal() bool { return !requiresAPIKey(c.LLM.Provider) }
 

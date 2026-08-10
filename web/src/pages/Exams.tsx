@@ -59,7 +59,7 @@ export default function Exams() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">
-                          {e.year} — {termLabel(e.term)}
+                          {e.year} {termLabel(e.term)}
                         </p>
                         <p className="mt-0.5 text-xs text-tertiary">
                           {e.questionCount} questions

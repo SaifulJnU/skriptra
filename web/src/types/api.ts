@@ -2,7 +2,7 @@
  * Types mirroring `api/openapi.yaml`.
  *
  * The contract is the single source of truth. When the Go server lands, these
- * are regenerated from the spec rather than edited by hand — if you find
+ * are regenerated from the spec rather than edited by hand, if you find
  * yourself changing a type here to make a component compile, change the spec.
  */
 
@@ -88,7 +88,7 @@ export interface Chapter {
 }
 
 /**
- * Nullable on a question, and carries a confidence score — a question is not
+ * Nullable on a question, and carries a confidence score, a question is not
  * always confidently classifiable, and the UI shows that rather than
  * presenting a guess as fact.
  */

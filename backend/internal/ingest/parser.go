@@ -4,14 +4,14 @@
 //
 // Document parsing is the one place in Skriptra where another language earns
 // its keep. Modern OCR and layout analysis (Surya, PaddleOCR, docTR) have no Go
-// equivalent, while everything else — embeddings, generation, retrieval,
-// orchestration — is HTTP, SQL or ordinary application code that Go handles
+// equivalent, while everything else, embeddings, generation, retrieval,
+// orchestration, is HTTP, SQL or ordinary application code that Go handles
 // natively.
 //
 // So parsing is defined as an interface with a capability declaration, and a
 // Chain picks the right implementation *per document* rather than per
 // deployment. A digitally-generated PDF takes the fast in-process Go path. A
-// scan takes whatever implementation can actually read it — today nothing, and
+// scan takes whatever implementation can actually read it, today nothing, and
 // later a Python sidecar over gRPC, registered exactly like any other parser.
 //
 // The point is that "add Python" is a new file and a compose entry, not a
@@ -90,7 +90,7 @@ type Probe struct {
 // DocumentParser extracts text and page structure from a document.
 //
 // Implementations must be safe for concurrent use and must respect context
-// cancellation — an out-of-process parser that ignores it will pin an
+// cancellation, an out-of-process parser that ignores it will pin an
 // ingestion worker on a document that no longer matters.
 type DocumentParser interface {
 	Parse(ctx context.Context, r io.Reader, filename string) (*ParsedDocument, error)
@@ -99,7 +99,7 @@ type DocumentParser interface {
 
 var (
 	// ErrNoCapableParser means the document needs something no registered
-	// parser provides — in practice, a scan with no OCR parser installed.
+	// parser provides, in practice, a scan with no OCR parser installed.
 	// It is deliberately distinct from a parse failure: the fix is deploying
 	// a capable parser, not retrying.
 	ErrNoCapableParser = errors.New("no registered parser can handle this document")

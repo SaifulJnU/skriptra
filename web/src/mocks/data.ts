@@ -70,13 +70,13 @@ export const exams: Exam[] = YEARS.map((y, i) => ({
   courseId: COURSE_ID,
   year: y.year,
   term: y.term,
-  title: `${y.year} — ${y.term === "summer" ? "Summer" : "Winter"}`,
+  title: `${y.year} ${y.term === "summer" ? "Summer" : "Winter"}`,
   documentId: `doc-${y.year}-${y.term}`,
   hasSolutions: y.solutions,
   questionCount: 5 + (i % 3),
 }));
 
-/** Question stems reused across years — deliberately, so "similar questions" has something true to find. */
+/** Question stems reused across years, deliberately, so "similar questions" has something true to find. */
 const STEMS: { text: string; chapter: number; topic: string; marks: number; confidence?: number }[] = [
   { text: "Derive the ordinary least squares estimator for β in the linear model y = Xβ + ε and state the assumptions required for it to be unbiased.", chapter: 2, topic: "OLS", marks: 12 },
   { text: "State and prove the Gauss-Markov theorem. Explain precisely what 'best' means in the acronym BLUE.", chapter: 2, topic: "Gauss-Markov", marks: 14 },
@@ -96,7 +96,7 @@ export const questions: Question[] = exams.flatMap((exam, ei) =>
   Array.from({ length: exam.questionCount }, (_, qi) => {
     const stem = STEMS[(ei * 3 + qi) % STEMS.length];
     const chapter = chapters.find((c) => c.number === stem.chapter)!;
-    // Every fifth question is left unclassified on purpose — the UI has to
+    // Every fifth question is left unclassified on purpose, the UI has to
     // handle a question the classifier could not place.
     const unclassified = (ei + qi) % 11 === 0;
     return {

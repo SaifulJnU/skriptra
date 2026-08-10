@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Deliberately browser-native rather than a Whisper pipeline: it needs no
  * model download, no backend round trip and no extra dependency, so dictation
  * works the moment the page loads. The trade-off is that it is Chrome/Edge/
- * Safari only and sends audio to the browser vendor's service — which is why
+ * Safari only and sends audio to the browser vendor's service, which is why
  * `supported` is exposed and the UI hides the control rather than showing a
  * button that silently does nothing.
  *
@@ -119,7 +119,7 @@ export function useVoiceInput(onFinal?: (text: string) => void): VoiceInput {
           e.error === "not-allowed"
             ? "Microphone permission was denied."
             : e.error === "no-speech"
-              ? "Didn't catch that — try again."
+              ? "Didn't catch that, try again."
               : `Voice input failed (${e.error}).`,
         );
         setListening(false);

@@ -1,9 +1,8 @@
 // Package openaicompat adapts any OpenAI-compatible endpoint to the provider
 // interfaces.
 //
-// One adapter covers a large share of hosted and self-hosted options — vLLM,
-// TGI, LM Studio, llama.cpp's server, Groq, Together, and OpenAI itself —
-// because they all speak the same wire format. Only the base URL and key
+// One adapter covers a large share of hosted and self-hosted options, vLLM,
+// TGI, LM Studio, llama.cpp's server, Groq, Together, and OpenAI itself, // because they all speak the same wire format. Only the base URL and key
 // change, which is the whole argument for the interface.
 package openaicompat
 

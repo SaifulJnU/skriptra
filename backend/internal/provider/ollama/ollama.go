@@ -1,6 +1,6 @@
 // Package ollama adapts a local Ollama server to the provider interfaces.
 //
-// Registered in init(), so enabling it is an import — the application never
+// Registered in init(), so enabling it is an import, the application never
 // contains a switch over provider names.
 package ollama
 
@@ -99,7 +99,7 @@ func (c *client) post(ctx context.Context, path string, body any) (*http.Respons
 
 	res, err := c.http.Do(httpReq)
 	if err != nil {
-		// A stopped Ollama is a deployment state, not a bug — surface it as
+		// A stopped Ollama is a deployment state, not a bug, surface it as
 		// ErrUnavailable so the API can answer 503 rather than 500.
 		return nil, fmt.Errorf("%w: %v", provider.ErrUnavailable, err)
 	}
@@ -232,7 +232,7 @@ func (c *client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 	// Guard the schema invariant here rather than letting Postgres reject the
 	// insert with a less obvious error.
 	if d := c.settings.Dimensions; d > 0 && len(out.Embeddings[0]) != d {
-		return nil, fmt.Errorf("model %q returned %d dimensions, expected %d — the schema and EMBEDDING_DIMENSIONS must agree",
+		return nil, fmt.Errorf("model %q returned %d dimensions, expected %d, the schema and EMBEDDING_DIMENSIONS must agree",
 			c.settings.Model, len(out.Embeddings[0]), d)
 	}
 	return out.Embeddings, nil

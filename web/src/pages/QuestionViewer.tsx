@@ -6,7 +6,7 @@ import { Card, ChapterBadge, ErrorState, Skeleton } from "@/components/ui";
 import { examLabel, formatPercent } from "@/lib/utils";
 
 /**
- * The question viewer — the screen that carries the product.
+ * The question viewer: the screen that carries the product.
  *
  * A question is only useful in context: which chapter it belongs to, where it
  * came from, whether it has been asked before. "Similar questions" is the

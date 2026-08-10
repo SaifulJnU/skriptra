@@ -70,7 +70,7 @@ type Match struct {
 //
 // This interface exists so that decision stays reversible. The trigger to add a
 // Qdrant implementation is a filtered candidate set consistently above ~100k
-// rows, or adopting late-interaction (ColBERT) reranking — the two places where
+// rows, or adopting late-interaction (ColBERT) reranking, the two places where
 // a dedicated vector database genuinely wins. Until then, a separate store
 // would add a dual-write consistency problem in exchange for nothing.
 type VectorStore interface {

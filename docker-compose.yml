@@ -1,4 +1,4 @@
-# Skriptra — local stack.
+# Skriptra, local stack.
 #
 # The service boundaries here are the same ones that run in production. Only the
 # infrastructure differs: managed Postgres instead of a container, a load
@@ -90,7 +90,7 @@ services:
       - uploads:/data/uploads
 
   # NOTE: there is no parser service. PDF text and page-coordinate extraction
-  # runs inside the worker via go-fitz — see docs/00-DESIGN.md §4.2. A Python
+  # runs inside the worker via go-fitz, see docs/00-DESIGN.md §4.2. A Python
   # sidecar is only warranted for OCR and layout analysis, which are phase 2.
   # The extraction interface is already a seam, so adding it here later is
   # additive rather than a rewrite.

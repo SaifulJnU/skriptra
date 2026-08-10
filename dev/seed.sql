@@ -65,7 +65,7 @@ VALUES ('44444444-0000-0000-0000-000000000099', 'classifying', 0.62, 'classifyin
 INSERT INTO exams (id, course_id, document_id, year, term, title)
 SELECT ('55555555-0000-0000-0000-' || lpad(row_number() OVER (ORDER BY d.year DESC, d.term)::text, 12, '0'))::uuid,
        d.course_id, d.id, d.year, d.term,
-       d.year || ' — ' || initcap(d.term::text)
+       d.year || ' ' || initcap(d.term::text)
 FROM documents d
 WHERE d.course_id = '22222222-2222-2222-2222-222222222222' AND d.status = 'indexed';
 

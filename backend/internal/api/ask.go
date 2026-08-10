@@ -112,7 +112,7 @@ func (s *Server) answerAnalyse(c *gin.Context, w *writer, req askRequest, starte
 		text = "No questions have been classified into chapters for this course yet."
 	} else {
 		text = fmt.Sprintf(
-			"**Chapter %d — %s** is the most frequently tested material, accounting for %.0f%% of all %d indexed questions and appearing in %d separate exams.\n\nThe full distribution is on the Analytics tab. These figures come from the question index directly, so they are exact.",
+			"**Chapter %d, %s** is the most frequently tested material, accounting for %.0f%% of all %d indexed questions and appearing in %d separate exams.\n\nThe full distribution is on the Analytics tab. These figures come from the question index directly, so they are exact.",
 			top.Chapter.Number, top.Chapter.Title, top.Share*100, freq.TotalQuestions, top.ExamCount)
 	}
 
@@ -128,7 +128,7 @@ func (s *Server) answerAnalyse(c *gin.Context, w *writer, req askRequest, starte
 	})
 }
 
-// answerEnumerate serves the exhaustive path — SQL, not retrieval. Top-k has no
+// answerEnumerate serves the exhaustive path, SQL, not retrieval. Top-k has no
 // notion of completeness, so it is not asked for one.
 func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d router.Decision, started time.Time) {
 	f := domain.QuestionFilters{

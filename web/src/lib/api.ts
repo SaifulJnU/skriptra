@@ -1,7 +1,7 @@
 /**
  * The API surface, defined once as an interface.
  *
- * There are two implementations — a real HTTP client and a mock — and the
+ * There are two implementations: a real HTTP client and a mock, and the
  * application cannot tell them apart. That is the same discipline the Go
  * backend applies to model providers: depend on the interface, choose the
  * implementation at the edge. It is what lets the UI be built and reviewed
@@ -93,7 +93,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       code = body?.error?.code ?? code;
       message = body?.error?.message ?? message;
     } catch {
-      // Non-JSON error body — keep the status text.
+      // Non-JSON error body, keep the status text.
     }
     throw new ApiRequestError(res.status, code, message);
   }

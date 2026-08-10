@@ -7,7 +7,7 @@ info:
     Exam intelligence platform API.
 
     **This contract is frozen.** The web client and the Go server are both built
-    against it, and TypeScript types are generated from it — they are never
+    against it, and TypeScript types are generated from it, they are never
     hand-written twice. Breaking changes go to `/api/v2`, they do not mutate v1.
 
     ## Conventions
@@ -211,7 +211,7 @@ paths:
       tags: [questions]
       summary: List questions with filters
       description: |
-        This is the `enumerate` path — exhaustive, ordered and paginated.
+        This is the `enumerate` path, exhaustive, ordered and paginated.
         It is deliberately **not** vector search: a request for every Chapter 3
         question must return every Chapter 3 question, which top-k retrieval
         structurally cannot guarantee.
@@ -328,7 +328,7 @@ paths:
       tags: [analytics]
       summary: How often each chapter is tested
       description: |
-        A pure SQL aggregate — the `analyse` intent never touches the LLM.
+        A pure SQL aggregate: the `analyse` intent never touches the LLM.
         This is what makes Skriptra more than a chatbot.
       parameters:
         - name: yearFrom
@@ -391,7 +391,7 @@ paths:
       tags: [questions]
       summary: Find similar questions across years
       description: |
-        The `similar` intent — vector k-NN over question embeddings, excluding
+        The `similar` intent, vector k-NN over question embeddings, excluding
         the question itself. This is the feature that turns a pile of PDFs into
         a study tool.
       parameters:
@@ -458,7 +458,7 @@ paths:
 
         | Intent | Path |
         |---|---|
-        | `enumerate` | SQL over `questions` — exhaustive |
+        | `enumerate` | SQL over `questions`, exhaustive |
         | `explain`   | Hybrid retrieval, then the LLM, with citations |
         | `similar`   | Vector k-NN |
         | `analyse`   | SQL aggregate, no LLM |
@@ -466,7 +466,7 @@ paths:
 
         Set `stream: true` to receive `text/event-stream` instead of JSON.
 
-        **SSE event sequence:** `intent` (once, immediately — lets the UI show
+        **SSE event sequence:** `intent` (once, immediately, lets the UI show
         what it decided) → `sources` (once, before generation, so citations can
         render while tokens stream) → `token` (many) → `done` (once, with usage)
         or `error`.
@@ -744,7 +744,7 @@ components:
         courseId: { type: string, format: uuid }
         year: { type: integer, examples: [2025] }
         term: { $ref: "#/components/schemas/Term" }
-        title: { type: string, examples: ["2025 — Summer"] }
+        title: { type: string, examples: ["2025, Summer"] }
         documentId: { type: string, format: uuid }
         hasSolutions: { type: boolean }
         questionCount: { type: integer }
@@ -764,7 +764,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         examId: { type: string, format: uuid }
-        number: { type: string, description: As printed, e.g. "4" or "4b". , examples: ["4"] }
+        number: { type: string, description: As printed, e.g. "4" or "4b"., examples: ["4"] }
         text: { type: string }
         marks: { type: number }
         sourcePage: { type: integer, description: 1-indexed page in the source PDF. }
@@ -777,7 +777,7 @@ components:
     ChapterRef:
       type: object
       description: |
-        Nullable — a question may not be confidently classifiable. `confidence`
+        Nullable: a question may not be confidently classifiable. `confidence`
         is exposed so the UI can flag low-confidence assignments for correction
         rather than silently presenting a guess as fact.
       required: [id, number, title]
