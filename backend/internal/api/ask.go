@@ -318,14 +318,17 @@ var reRefusal = regexp.MustCompile(`(?i)insufficient[\s_\-]*context`)
 // isRefusal reports whether the model signalled that the passages were
 // insufficient.
 //
-// Only the opening of the answer is examined, so a model discussing the phrase
-// in passing is not mistaken for one refusing.
+// The whole answer is scanned, not just the opening. The prompt asks for the
+// sentinel on the first line and nothing else, but models routinely explain
+// themselves first and emit it at the end. Checking only the head let a
+// refusal through with its citations still attached, and printed the sentinel
+// to the user.
+//
+// Scanning everything risks a false positive if a model discusses the phrase in
+// passing. Given the phrase, that is far less likely than the failure it
+// prevents.
 func isRefusal(answer string) bool {
-	head := strings.TrimSpace(answer)
-	if len(head) > 200 {
-		head = head[:200]
-	}
-	return reRefusal.MatchString(head)
+	return reRefusal.MatchString(answer)
 }
 
 func citationFor(q domain.Question) domain.Citation {

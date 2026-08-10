@@ -84,11 +84,15 @@ func TestClassifyDoesNotCallLLMWhenConfident(t *testing.T) {
 	}
 }
 
+// Ambiguous means several chapters compete, not that none match. A question
+// touching assumptions, residuals and link functions could belong to three
+// chapters, which is the case the fallback exists for.
 func TestClassifyEscalatesToLLMWhenUnsure(t *testing.T) {
 	llm := &stubLLM{reply: `{"chapter": 3, "confidence": 0.88}`}
 	c := NewClassifier(taxonomy, llm)
 
-	got := c.Classify(context.Background(), "Show that the quantity in part (a) has the distribution stated in the lecture.")
+	got := c.Classify(context.Background(),
+		"Discuss the residual assumptions of the design matrix and the link function together.")
 	if llm.called == 0 {
 		t.Fatal("LLM was not consulted for an ambiguous question")
 	}
@@ -113,7 +117,8 @@ func TestClassifyHandlesModelWrappingJSONInProse(t *testing.T) {
 	llm := &stubLLM{reply: "Sure! Here you go:\n```json\n{\"chapter\": 4, \"confidence\": 0.8}\n```"}
 	c := NewClassifier(taxonomy, llm)
 
-	got := c.Classify(context.Background(), "Comment on the pattern visible in the plot from part (b).")
+	got := c.Classify(context.Background(),
+		"Discuss the residual assumptions of the design matrix and the link function together.")
 	if got.ChapterNumber != 4 {
 		t.Errorf("chapter = %d, want 4 parsed out of the fenced reply", got.ChapterNumber)
 	}

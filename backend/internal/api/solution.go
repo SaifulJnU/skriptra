@@ -161,11 +161,20 @@ func (s *Server) generateSolution(c *gin.Context) {
 	}
 	usage.LatencyMs = time.Since(started).Milliseconds()
 
+	answer := full.String()
+	// Same rule as /ask: a refusal grounds nothing, so it keeps no citations
+	// and the sentinel never reaches the user.
+	if isRefusal(answer) {
+		answer = "**Not enough course material to work from.**\n\nThe indexed material for this chapter does not contain the method this question needs. Upload the lecture notes or a solution sheet from another year."
+		sources = []domain.Citation{}
+		usage.RetrievedChunks = 0
+	}
+
 	w.done(domain.Answer{
 		ConversationID: uuid.New(),
 		MessageID:      uuid.New(),
 		Intent:         domain.IntentExplain,
-		Answer:         full.String(),
+		Answer:         answer,
 		Sources:        sources,
 		Usage:          &usage,
 	})

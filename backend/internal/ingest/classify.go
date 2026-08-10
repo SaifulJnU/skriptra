@@ -62,6 +62,20 @@ func (c *Classifier) Classify(ctx context.Context, questionText string) Classifi
 		return best
 	}
 
+	// Escalate on ambiguity, never on absence.
+	//
+	// No chapter matching any vocabulary is not a hard case, it is evidence the
+	// text is not about the course at all: rubric, instructions, a cover page.
+	// Asking a model to choose anyway produced exactly that failure, filing
+	// "write your matriculation number on every sheet" under Generalized Linear
+	// Models with full confidence. A model asked to pick will pick.
+	//
+	// The fallback earns its place when several chapters genuinely compete, and
+	// there the keyword path has already found at least one.
+	if best.ChapterNumber == 0 {
+		return best
+	}
+
 	if llmResult, err := c.byLLM(ctx, questionText); err == nil && llmResult.ChapterNumber != 0 {
 		return llmResult
 	}
@@ -70,14 +84,21 @@ func (c *Classifier) Classify(ctx context.Context, questionText string) Classifi
 	return best
 }
 
-// byKeyword scores each chapter by how much of its topic vocabulary appears in
-// the question.
+// byKeyword scores each chapter by how much of its vocabulary appears in the
+// question.
 //
-// Longer terms score higher: matching "generalized linear model" is far more
-// informative than matching "model", and without that weighting every question
-// mentioning a common word drifts to whichever chapter listed it.
+// Matching is per token against a crude stem, not by substring. Exact substring
+// matching looks reasonable and fails on ordinary morphology: a chapter called
+// "Least Squares Estimation" scored zero against a question asking for the
+// "least squares estimator", one letter apart, and the question was filed under
+// whichever other chapter happened to share a word. Stemming both sides makes
+// estimator, estimation and estimate the same evidence.
+//
+// Multi-token terms score superlinearly, so matching all of "generalized linear
+// model" beats matching "model" alone. Without that, every question mentioning
+// a common word drifts to whichever chapter listed it.
 func (c *Classifier) byKeyword(text string) Classification {
-	norm := normaliseForMatch(text)
+	questionTokens := tokenSet(text)
 
 	type scored struct {
 		number  int
@@ -95,13 +116,29 @@ func (c *Classifier) byKeyword(text string) Classification {
 
 		terms := append([]string{ch.Title}, ch.Topics...)
 		for _, term := range terms {
-			t := normaliseForMatch(term)
-			if len(t) < 3 || !strings.Contains(norm, t) {
+			termTokens := tokens(term)
+			if len(termTokens) == 0 {
 				continue
 			}
-			// Weight by term length: specific phrases are strong evidence,
-			// short common words are weak.
-			w := float64(len(strings.Fields(t))) + float64(len(t))/12.0
+
+			hits := 0
+			for _, tok := range termTokens {
+				if questionTokens[tok] {
+					hits++
+				}
+			}
+			if hits == 0 {
+				continue
+			}
+
+			// A partially matched multi-word term is weak evidence; a fully
+			// matched one is strong. Squaring the coverage separates them.
+			coverage := float64(hits) / float64(len(termTokens))
+			if coverage < 0.5 {
+				continue
+			}
+			w := coverage * coverage * float64(len(termTokens))
+
 			total += w
 			matched++
 			if w > bestTopicScore {
@@ -188,6 +225,12 @@ Use {"chapter": 0} if it does not clearly belong to any of them.`, list.String()
 	if parsed.Confidence <= 0 || parsed.Confidence > 1 {
 		parsed.Confidence = 0.75
 	}
+	// Cap what the model may claim. It was consulted precisely because the
+	// evidence was weak, so it reporting 1.0 is not something to record as
+	// certainty; the UI uses this to decide what to flag for review.
+	if parsed.Confidence > 0.9 {
+		parsed.Confidence = 0.9
+	}
 	return Classification{
 		ChapterNumber: parsed.Chapter,
 		Confidence:    parsed.Confidence,
@@ -213,6 +256,50 @@ func extractJSON(s string) string {
 		return s[start : end+1]
 	}
 	return s
+}
+
+// stopWords carry no topical signal and would otherwise let any chapter whose
+// title contains "the" match any question.
+var stopWords = map[string]bool{
+	"the": true, "a": true, "an": true, "and": true, "or": true, "of": true,
+	"in": true, "for": true, "to": true, "with": true, "on": true, "is": true,
+	"its": true, "der": true, "die": true, "das": true, "und": true, "von": true,
+}
+
+// stem strips the common suffixes that separate a chapter title from the way a
+// question phrases the same idea.
+//
+// Deliberately crude. A real stemmer is a dependency and a behaviour that is
+// hard to reason about, and this handles the variation that actually appears
+// between a syllabus and an exam paper: estimator against estimation, testing
+// against tests, regression against regressions.
+func stem(w string) string {
+	for _, suffix := range []string{"ations", "ation", "ators", "ator", "ing", "ives", "ive", "ies", "es", "s"} {
+		if len(w) > len(suffix)+3 && strings.HasSuffix(w, suffix) {
+			return w[:len(w)-len(suffix)]
+		}
+	}
+	return w
+}
+
+// tokens splits a phrase into stemmed, meaningful words.
+func tokens(s string) []string {
+	out := []string{}
+	for _, w := range strings.Fields(normaliseForMatch(s)) {
+		if len(w) < 2 || stopWords[w] {
+			continue
+		}
+		out = append(out, stem(w))
+	}
+	return out
+}
+
+func tokenSet(s string) map[string]bool {
+	set := map[string]bool{}
+	for _, t := range tokens(s) {
+		set[t] = true
+	}
+	return set
 }
 
 // normaliseForMatch lowercases and reduces punctuation to spaces so that
