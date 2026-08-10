@@ -6,7 +6,7 @@ A self-hostable, provider-agnostic **exam intelligence platform**. Upload a cour
 
 It runs entirely on your own machine with a local model, or against any hosted provider. That choice is a single environment variable.
 
-`Go 1.26` · `React 18 + TypeScript` · `PostgreSQL 17 + pgvector` · `NATS` · `Docker`
+`Go 1.26` · `python` · `React 18 + TypeScript` · `PostgreSQL 17 + pgvector` · `NATS` · `Docker`
 
 > **Status: in active development.** The full loop works. A PDF uploads, is split into questions, classified by chapter, embedded and indexed, and is then retrievable by meaning with page-level citations. Screenshots below use a seeded corpus so they stay reproducible.
 > **A hosted demo is coming.** Until then the whole stack runs locally with `docker compose up`. See [Running it locally](#running-it-locally).
