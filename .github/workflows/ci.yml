@@ -16,6 +16,22 @@ jobs:
           go-version: "1.26"
           cache-dependency-path: backend/go.sum
 
+      # A byte-order mark is invisible in every editor and diff, and Go rejects
+      # one anywhere but the very start of a file. This has already broken the
+      # build once, from a PowerShell script writing with -Encoding utf8, which
+      # adds a BOM. Cheaper to catch here than to debug from a compiler error
+      # pointing at line 1 column 1 of a file that looks fine.
+      - name: No byte-order marks in source
+        run: |
+          found=$(git ls-files -z '*.go' '*.ts' '*.tsx' '*.sql' '*.py' '*.yml' '*.json' \
+            | xargs -0 -I{} sh -c 'head -c3 "{}" | grep -q $'"'"'\xef\xbb\xbf'"'"' && echo "{}"' || true)
+          if [ -n "$found" ]; then
+            echo "Files begin with a UTF-8 BOM:"; echo "$found"
+            echo "Strip it: perl -i -pe 's/^\\x{feff}//' <file>"
+            exit 1
+          fi
+          echo "no BOMs"
+
       - name: Build
         working-directory: backend
         run: go build ./...
