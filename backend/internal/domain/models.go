@@ -249,8 +249,11 @@ type ChapterFrequencyResponse struct {
 
 // QuestionFilters carries the structured filters for the enumerate path.
 type QuestionFilters struct {
-	ChapterID     *uuid.UUID
-	ChapterNumber *int
+	ChapterID      *uuid.UUID
+	ChapterNumber  *int
+	ChapterNumbers []int
+	MarksMin       *float64
+	MarksMax       *float64
 	YearFrom      *int
 	YearTo        *int
 	Term          *Term

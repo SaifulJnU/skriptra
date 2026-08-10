@@ -207,8 +207,17 @@ func (s *Store) ListQuestions(ctx context.Context, courseID uuid.UUID, f domain.
 	if f.ChapterID != nil {
 		add("q.chapter_id = $%d", *f.ChapterID)
 	}
-	if f.ChapterNumber != nil {
+	// A query naming several chapters is several constraints, not one.
+	if len(f.ChapterNumbers) > 0 {
+		add("ch.number = ANY($%d)", f.ChapterNumbers)
+	} else if f.ChapterNumber != nil {
 		add("ch.number = $%d", *f.ChapterNumber)
+	}
+	if f.MarksMin != nil {
+		add("q.marks >= $%d", *f.MarksMin)
+	}
+	if f.MarksMax != nil {
+		add("q.marks <= $%d", *f.MarksMax)
 	}
 	if f.YearFrom != nil {
 		add("e.year >= $%d", *f.YearFrom)

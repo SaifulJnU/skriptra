@@ -145,16 +145,20 @@ func (s *Server) answerAnalyse(c *gin.Context, w *writer, req askRequest, starte
 // notion of completeness, so it is not asked for one.
 func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d router.Decision, started time.Time) {
 	f := domain.QuestionFilters{
-		ChapterNumber: d.ChapterNumber,
-		YearFrom:      req.Filters.YearFrom,
-		YearTo:        req.Filters.YearTo,
-		Sort:          "newest",
-		Page:          1,
-		PageSize:      100,
+		ChapterNumber:  d.ChapterNumber,
+		ChapterNumbers: d.ChapterNumbers,
+		YearFrom:       req.Filters.YearFrom,
+		YearTo:         req.Filters.YearTo,
+		Sort:           "newest",
+		Page:           1,
+		PageSize:       100,
 	}
 	if d.QuestionType != "" {
 		qt := d.QuestionType
 		f.QuestionType = &qt
+	}
+	if d.Marks != nil {
+		f.MarksMin, f.MarksMax = d.Marks.Min, d.Marks.Max
 	}
 	questions, total, err := s.store.ListQuestions(c, req.CourseID, f, nil)
 	if err != nil {
@@ -180,8 +184,19 @@ func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d ro
 	if d.QuestionType != "" {
 		applied = append(applied, ingest.QuestionType(d.QuestionType).Label()+" questions")
 	}
-	if d.ChapterNumber != nil {
-		applied = append(applied, fmt.Sprintf("Chapter %d", *d.ChapterNumber))
+	if d.Marks != nil {
+		applied = append(applied, d.Marks.Label)
+	}
+	switch len(d.ChapterNumbers) {
+	case 0:
+	case 1:
+		applied = append(applied, fmt.Sprintf("Chapter %d", d.ChapterNumbers[0]))
+	default:
+		parts := make([]string, len(d.ChapterNumbers))
+		for i, n := range d.ChapterNumbers {
+			parts[i] = fmt.Sprintf("%d", n)
+		}
+		applied = append(applied, "Chapters "+strings.Join(parts, " and "))
 	}
 	if d.YearFrom != nil && d.YearTo != nil {
 		if *d.YearFrom == *d.YearTo {

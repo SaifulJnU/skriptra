@@ -245,8 +245,19 @@ export default function Ask() {
 
             {turn.usage && (
               <p className="mt-4 text-xs text-tertiary">
-                {turn.usage.retrievedChunks} passages retrieved · {turn.usage.completionTokens}{" "}
-                tokens · {turn.usage.latencyMs}ms · {turn.usage.provider}/{turn.usage.model}
+                {/* Only the fields that apply. A SQL-backed answer runs no
+                    model, so printing empty token counts and a bare "/" where
+                    the provider would be made it look broken. */}
+                {[
+                  turn.usage.retrievedChunks
+                    ? `${turn.usage.retrievedChunks} passages retrieved`
+                    : null,
+                  turn.usage.completionTokens ? `${turn.usage.completionTokens} tokens` : null,
+                  turn.usage.latencyMs != null ? `${turn.usage.latencyMs}ms` : null,
+                  turn.usage.model ? `${turn.usage.provider}/${turn.usage.model}` : "no model used",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             )}
           </article>
