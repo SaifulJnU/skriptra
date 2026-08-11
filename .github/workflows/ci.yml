@@ -63,13 +63,21 @@ jobs:
 
       # A migration that cannot be rolled back is a migration you cannot deploy
       # with confidence, so the down path is tested rather than assumed.
+      #
+      # Every migration is applied, not just the first. The step used to name
+      # 000001 directly, which meant each new migration was added to the repo
+      # without its down path ever being run.
       - name: Apply, roll back, re-apply
         env:
           PGPASSWORD: skriptra
         run: |
-          psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -f migrations/000001_init.up.sql
-          psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -f migrations/000001_init.down.sql
-          psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -f migrations/000001_init.up.sql
+          apply() { for f in $(ls migrations/*.up.sql | sort); do
+            echo "up   $f"; psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -q -f "$f"; done; }
+          rollback() { for f in $(ls migrations/*.down.sql | sort -r); do
+            echo "down $f"; psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -q -f "$f"; done; }
+          apply
+          rollback
+          apply
 
       - name: Seed loads cleanly
         env:
