@@ -67,3 +67,34 @@ func TestParseQuestionTypeFromUserQuery(t *testing.T) {
 		}
 	}
 }
+
+// A real paper prints the instruction once and then gives each statement only a
+// pair of answer boxes. Before this was handled, one exercise was typed
+// true/false and the twelve statements under it were all unknown, so asking for
+// the true/false questions returned the wrapper and none of the questions.
+func TestClassifyTypeAnswerBoxes(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+	}{
+		{"box glyph", "In a multiple linear regression model, adding a variable never decreases R squared. □ TRUE □ FALSE"},
+		{"bare pair", "The OLS estimator is unbiased under the classical assumptions. TRUE FALSE"},
+		{"german boxes", "Der Schaetzer ist erwartungstreu. □ WAHR □ FALSCH"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ClassifyType(tc.text); got != TypeTrueFalse {
+				t.Fatalf("got %q, want %q", got, TypeTrueFalse)
+			}
+		})
+	}
+}
+
+// The boxes must not swallow ordinary prose that happens to use both words.
+func TestClassifyTypeAnswerBoxesNoFalsePositive(t *testing.T) {
+	text := "Explain why a test can be true in the population but the estimator " +
+		"still gives a false impression in a small sample, and discuss the consequences."
+	if got := ClassifyType(text); got == TypeTrueFalse {
+		t.Fatalf("prose classified as true/false")
+	}
+}

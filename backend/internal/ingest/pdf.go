@@ -10,13 +10,21 @@ import (
 	"github.com/ledongthuc/pdf"
 )
 
-// PDFParser extracts a text layer from digitally generated PDFs.
+// PDFParser is the in-process fallback for PDFs.
 //
-// Pure Go, no cgo. That is a deliberate trade against go-fitz/MuPDF, which
-// extracts better but requires a C toolchain and turns `go build` into a
-// platform-specific problem. This implementation builds anywhere Go builds,
-// which for a self-hosted project is worth more than marginally better
-// extraction.
+// Pure Go, no cgo, so it builds anywhere Go builds. It is genuinely limited:
+// on PDFs that do not encode their own spaces, which includes most LaTeX
+// output, it returns every word run together. A real exam paper came back as
+// "Exercise1:(6Points)Decideforeachofthefollowing".
+//
+// Reconstructing the gaps from geometry was tried and abandoned: the library
+// reports X, W and FontSize as zero for exactly the files that need it, and
+// ordering rows by Y reversed the reading order on files that did not. It
+// therefore declares Quality 1, and the Chain prefers the pdftotext parser
+// whenever the document service is running.
+//
+// It stays because a deployment without that service should still handle
+// ordinary PDFs rather than refuse everything.
 //
 // It declares no OCR capability, so the Chain will refuse a scan rather than
 // hand back empty text that would silently poison the index.
@@ -25,11 +33,15 @@ type PDFParser struct{}
 func (PDFParser) Capabilities() Capabilities {
 	return Capabilities{
 		Name:      "pdf-go",
+		Formats:   []Format{FormatPDF},
 		TextLayer: true,
 		OCR:       false,
 		Layout:    false,
 		Formulas:  false,
 		Local:     true,
+		// Low: it loses spacing on PDFs that do not encode them, which is most
+		// LaTeX output. Adequate as a fallback when no sidecar is running.
+		Quality: 1,
 	}
 }
 

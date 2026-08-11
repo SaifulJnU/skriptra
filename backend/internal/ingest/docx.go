@@ -26,11 +26,14 @@ type DOCXParser struct{}
 func (DOCXParser) Capabilities() Capabilities {
 	return Capabilities{
 		Name:      "docx-go",
+		Formats:   []Format{FormatDOCX},
 		TextLayer: true,
 		OCR:       false,
 		Layout:    false,
 		Formulas:  false,
 		Local:     true,
+		// The words are literally in the XML, so nothing is being inferred.
+		Quality: 5,
 	}
 }
 

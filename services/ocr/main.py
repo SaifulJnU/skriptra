@@ -18,6 +18,8 @@ the sidecar something anyone can run and curl.
 import io
 import logging
 import os
+import subprocess
+import tempfile
 
 import pytesseract
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -70,6 +72,70 @@ def _prepare(image: Image.Image) -> Image.Image:
 
 def _ocr_page(image: Image.Image, langs: str) -> str:
     return pytesseract.image_to_string(_prepare(image), lang=langs, config=TESS_CONFIG)
+
+
+@app.post("/extract")
+async def extract(file: UploadFile = File(...)):
+    """Extract an existing text layer from a PDF, with pdftotext.
+
+    Separate from /ocr and much cheaper: this reads text the file already
+    contains rather than recognising glyphs in an image.
+
+    It exists because the pure-Go extractor could not do it. Asked for a real
+    LaTeX-produced exam paper it returned
+    "Exercise1:(6Points)Decideforeachofthefollowing" with every space missing,
+    and reported zero position data for every run, so the gaps could not be
+    reconstructed either. Poppler carries the font metrics needed to know where
+    the words end, and it is already in this image for page rendering.
+
+    -layout preserves the visual column structure, which matters because
+    question numbering lives at the start of a line and multi-column layouts
+    otherwise interleave into nonsense.
+    """
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="empty file")
+    if content[:4] != b"%PDF":
+        raise HTTPException(status_code=422, detail="not a PDF")
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(content)
+        path = tmp.name
+
+    try:
+        # Page-by-page, so page numbers survive. Every citation depends on them.
+        info = subprocess.run(
+            ["pdfinfo", path], capture_output=True, text=True, timeout=60
+        )
+        pages_total = 0
+        for line in info.stdout.splitlines():
+            if line.startswith("Pages:"):
+                pages_total = int(line.split()[1])
+                break
+        if pages_total == 0:
+            raise HTTPException(status_code=422, detail="could not read page count")
+
+        pages = []
+        for n in range(1, pages_total + 1):
+            proc = subprocess.run(
+                ["pdftotext", "-layout", "-f", str(n), "-l", str(n), path, "-"],
+                capture_output=True, text=True, timeout=120,
+            )
+            pages.append({"number": n, "text": proc.stdout, "width": 0, "height": 0})
+
+        extracted = sum(len(p["text"].strip()) for p in pages)
+        log.info("extract %s: %d pages, %d chars", file.filename, len(pages), extracted)
+
+        return {
+            "pages": pages,
+            "pageCount": len(pages),
+            "parsedBy": "pdftotext",
+            "charactersExtracted": extracted,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=422, detail="extraction timed out")
+    finally:
+        os.unlink(path)
 
 
 @app.post("/ocr")

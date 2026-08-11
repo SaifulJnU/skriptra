@@ -73,16 +73,19 @@ func DetectFormat(buf []byte) Format {
 func ProbeDocument(buf []byte) (Format, Probe) {
 	format := DetectFormat(buf)
 
+	var p Probe
 	switch format {
 	case FormatPDF:
-		return format, ProbePDF(buf)
+		p = ProbePDF(buf)
 	case FormatDOCX:
-		return format, ProbeDOCX(buf)
+		p = ProbeDOCX(buf)
 	case FormatImage:
-		return format, Probe{PageCount: 1, HasTextLayer: false, LikelyScanned: true}
-	default:
-		return format, Probe{}
+		p = Probe{PageCount: 1, HasTextLayer: false, LikelyScanned: true}
 	}
+	// Carried on the probe so the Chain can filter on it without being told
+	// separately, which is how a Word reader came to be chosen for a PDF.
+	p.Format = format
+	return format, p
 }
 
 // SupportedFormats lists what upload accepts, for error messages and for the

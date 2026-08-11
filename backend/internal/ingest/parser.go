@@ -64,6 +64,12 @@ type ParsedDocument struct {
 type Capabilities struct {
 	Name string
 
+	// Formats this parser can read. Capability and quality are not enough on
+	// their own: with three parsers registered, the highest-quality one was
+	// selected for a PDF purely because it read text well, and it happened to
+	// be the Word reader. Format is the first filter for that reason.
+	Formats []Format
+
 	// TextLayer: can extract an existing text layer. Every parser can.
 	TextLayer bool
 	// OCR: can read pages with no text layer (scans, photographs).
@@ -74,13 +80,24 @@ type Capabilities struct {
 	Formulas bool
 
 	// Local is false for out-of-process parsers, so the scheduler can prefer
-	// the cheap in-process path when both are viable.
+	// the cheap in-process path when quality is equal.
 	Local bool
+
+	// Quality ranks extraction fidelity, higher is better.
+	//
+	// Cost alone is the wrong basis for choosing. The pure-Go PDF reader is
+	// free and in-process, and on a real LaTeX exam paper it returned
+	// "Exercise1:(6Points)Decideforeach" with every space missing and no
+	// position data to reconstruct them from. Cheap and wrong is not a
+	// trade worth making, so fidelity is ranked first and cost breaks ties.
+	Quality int
 }
 
 // Probe is what the Chain inspects before choosing. Cheap to compute: it only
 // requires reading the first page or two.
 type Probe struct {
+	// Format is decided from the file's contents, never its extension.
+	Format         Format
 	HasTextLayer   bool
 	LikelyScanned  bool
 	ContainsMath   bool
@@ -137,6 +154,9 @@ func (c *Chain) Select(p Probe) (DocumentParser, error) {
 	candidates := make([]DocumentParser, 0, len(c.parsers))
 	for _, parser := range c.parsers {
 		caps := parser.Capabilities()
+		if !caps.handles(p.Format) {
+			continue
+		}
 		if needsOCR && !caps.OCR {
 			continue
 		}
@@ -150,13 +170,16 @@ func (c *Chain) Select(p Probe) (DocumentParser, error) {
 		if needsOCR {
 			return nil, fmt.Errorf("%w: document has no text layer and no OCR-capable parser is registered", ErrNoCapableParser)
 		}
-		return nil, ErrNoCapableParser
+		return nil, fmt.Errorf("%w: no parser accepts format %q", ErrNoCapableParser, p.Format)
 	}
 
-	// Cheapest first: in-process beats out-of-process, and among equals the
-	// one carrying fewer heavyweight capabilities is the lighter path.
+	// Best first, then cheapest. Fidelity decides, because text that came back
+	// wrong poisons every downstream stage silently; cost only breaks ties.
 	sort.SliceStable(candidates, func(i, j int) bool {
 		a, b := candidates[i].Capabilities(), candidates[j].Capabilities()
+		if a.Quality != b.Quality {
+			return a.Quality > b.Quality
+		}
 		if a.Local != b.Local {
 			return a.Local
 		}
@@ -193,6 +216,21 @@ func (c *Chain) Registered() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// handles reports whether this parser accepts the format. An empty list means
+// the parser did not declare one, which is treated as accepting anything so an
+// adapter written before this field cannot silently stop being selected.
+func (c Capabilities) handles(f Format) bool {
+	if len(c.Formats) == 0 || f == "" {
+		return true
+	}
+	for _, allowed := range c.Formats {
+		if allowed == f {
+			return true
+		}
+	}
+	return false
 }
 
 func weight(c Capabilities) int {

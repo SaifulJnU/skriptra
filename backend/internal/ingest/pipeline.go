@@ -78,7 +78,12 @@ func NewPipeline(store Store, embedder provider.Embedder, llm provider.LLM, ocrU
 	// the missing capability, rather than being indexed as nothing.
 	if ocr := NewOCRParser(ocrURL); ocr != nil {
 		chain.Register(ocr)
-		log.Info("ocr sidecar registered", "url", ocrURL)
+		// The same service also extracts an existing text layer, which it does
+		// far better than the pure-Go reader, so it is registered separately
+		// and outranks the fallback on quality.
+		chain.Register(NewPDFTextParser(ocrURL))
+		log.Info("document service registered", "url", ocrURL,
+			"parsers", "pdftotext, tesseract-ocr")
 	}
 	return &Pipeline{parsers: chain, store: store, embedder: embedder, llm: llm, log: log}
 }

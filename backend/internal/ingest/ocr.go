@@ -21,15 +21,36 @@ import (
 type OCRParser struct {
 	baseURL string
 	http    *http.Client
+	// endpoint is "ocr" or "extract". The same service does both, but they are
+	// registered as separate parsers because their capabilities differ: one
+	// reads glyphs off an image, the other reads a text layer the file already
+	// has. Collapsing them would force the Chain to send a digital PDF through
+	// image recognition.
+	endpoint string
 }
 
 // NewOCRParser returns nil when no address is configured, so callers can
 // register unconditionally and get the correct behaviour either way.
 func NewOCRParser(baseURL string) *OCRParser {
+	return newSidecarParser(baseURL, "ocr")
+}
+
+// NewPDFTextParser extracts an existing text layer via poppler in the sidecar.
+//
+// It exists because the pure-Go reader could not. On a real LaTeX exam paper it
+// returned every word run together with no spaces and no position data, so the
+// gaps could not be reconstructed. Poppler has the font metrics to know where
+// words end, and it is already in that image for page rendering.
+func NewPDFTextParser(baseURL string) *OCRParser {
+	return newSidecarParser(baseURL, "extract")
+}
+
+func newSidecarParser(baseURL, endpoint string) *OCRParser {
 	if baseURL == "" {
 		return nil
 	}
 	return &OCRParser{
+		endpoint: endpoint,
 		baseURL: baseURL,
 		http: &http.Client{
 			Transport: &http.Transport{
@@ -43,16 +64,32 @@ func NewOCRParser(baseURL string) *OCRParser {
 	}
 }
 
-func (*OCRParser) Capabilities() Capabilities {
+func (o *OCRParser) Capabilities() Capabilities {
+	if o.endpoint == "extract" {
+		return Capabilities{
+			Name:      "pdftotext",
+			Formats:   []Format{FormatPDF},
+			TextLayer: true,
+			OCR:       false,
+			Layout:    true,
+			Local:     false,
+			// Reads the text the file already contains, with correct word
+			// boundaries. Out of process, but far better than the fallback.
+			Quality: 4,
+		}
+	}
 	return Capabilities{
 		Name:      "tesseract-ocr",
+		Formats:   []Format{FormatPDF, FormatImage},
 		TextLayer: true,
 		OCR:       true,
 		Layout:    false,
 		Formulas:  false,
-		// Out of process, so the Chain prefers the in-process Go parser
-		// whenever a document does not actually need OCR.
-		Local: false,
+		Local:     false,
+		// Recognition is inherently lossy, so it ranks below reading a real
+		// text layer. It is chosen when nothing else can read the document
+		// at all, which is what OCR is for.
+		Quality: 2,
 	}
 }
 
@@ -83,7 +120,7 @@ func (o *OCRParser) Parse(ctx context.Context, r io.Reader, filename string) (*P
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.baseURL+"/ocr", &body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.baseURL+"/"+o.endpoint, &body)
 	if err != nil {
 		return nil, err
 	}
@@ -91,13 +128,13 @@ func (o *OCRParser) Parse(ctx context.Context, r io.Reader, filename string) (*P
 
 	res, err := o.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ocr service unreachable: %w", err)
+		return nil, fmt.Errorf("document service unreachable: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(io.LimitReader(res.Body, 512))
-		return nil, fmt.Errorf("ocr service returned %d: %s", res.StatusCode, bytes.TrimSpace(msg))
+		return nil, fmt.Errorf("document service returned %d: %s", res.StatusCode, bytes.TrimSpace(msg))
 	}
 
 	var parsed ocrResponse
@@ -116,7 +153,7 @@ func (o *OCRParser) Parse(ctx context.Context, r io.Reader, filename string) (*P
 	doc := &ParsedDocument{
 		PageCount: parsed.PageCount,
 		Pages:     make([]Page, 0, len(parsed.Pages)),
-		ParsedBy:  "tesseract-ocr",
+		ParsedBy:  parsed.ParsedBy,
 	}
 	for _, p := range parsed.Pages {
 		doc.Pages = append(doc.Pages, Page{
