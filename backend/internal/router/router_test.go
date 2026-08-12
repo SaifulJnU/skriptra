@@ -90,8 +90,8 @@ func TestResolveChapterAbsent(t *testing.T) {
 
 func TestResolveYears(t *testing.T) {
 	cases := []struct {
-		question           string
-		wantFrom, wantTo   int
+		question         string
+		wantFrom, wantTo int
 	}{
 		{"all chapter 3 questions from the last five years", 2022, 2026},
 		{"questions between 2020-2023", 2020, 2023},
@@ -108,5 +108,45 @@ func TestResolveYears(t *testing.T) {
 			t.Errorf("Route(%q) years = %d-%d, want %d-%d",
 				tc.question, *d.YearFrom, *d.YearTo, tc.wantFrom, tc.wantTo)
 		}
+	}
+}
+
+// The analyse rule shares its vocabulary with the subject matter of a
+// statistics course. These are the cases where a corpus-level word appears in a
+// question that is plainly about the material, and routing them to a SQL
+// aggregate answers a question nobody asked.
+func TestRouteDoesNotMistakeSubjectMatterForAnalytics(t *testing.T) {
+	explanations := []string{
+		"Derive the canonical link for the Poisson distribution",
+		"Explain the distribution of the residual sum of squares",
+		"What is the null distribution of the F-statistic?",
+		"Explain how the test statistic is constructed",
+		"Why is the most efficient estimator also unbiased?",
+	}
+	for _, q := range explanations {
+		t.Run(q, func(t *testing.T) {
+			if got := Route(q, nil, 2026).Intent; got == domain.IntentAnalyse {
+				t.Fatalf("routed to analyse, want anything else")
+			}
+		})
+	}
+}
+
+// The genuine analytics questions must still route there, or tightening the
+// rule has simply broken the feature.
+func TestRouteStillDetectsAnalytics(t *testing.T) {
+	analytics := []string{
+		"Which chapters are tested most often?",
+		"How many questions are there about the F-test?",
+		"Show me the distribution of questions across chapters",
+		"What is the most frequently tested topic?",
+		"Welche Kapitel werden am häufigsten geprüft?",
+	}
+	for _, q := range analytics {
+		t.Run(q, func(t *testing.T) {
+			if got := Route(q, nil, 2026).Intent; got != domain.IntentAnalyse {
+				t.Fatalf("got %q, want analyse", got)
+			}
+		})
 	}
 }

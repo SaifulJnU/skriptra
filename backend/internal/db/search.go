@@ -36,7 +36,29 @@ func (s *Store) HybridSearch(
 WITH params AS (
     SELECT $1::uuid AS course_id, $2::text AS q_text, $3::vector AS q_vec,
            $4::int AS chapter_number, $5::int AS year_from, $6::int AS year_to,
-           60::int AS k
+           60::int AS k,
+           -- The sparse query, built once.
+           --
+           -- Two things are deliberate. Both dictionaries are used, because a
+           -- German and an English paper sit in the same course, and the query
+           -- has to reach both.
+           --
+           -- The AND that websearch_to_tsquery produces is rewritten to OR. A
+           -- conjunction means the passage must contain every content word of
+           -- the question, so one word the author happened not to use drops the
+           -- passage entirely, and the lexical signal disappears exactly when
+           -- the question is phrased naturally. OR lets ts_rank_cd do the job
+           -- it exists for: passages matching more terms, closer together, rank
+           -- higher. Precision is not lost, because this is one half of a
+           -- fusion whose other half is dense similarity.
+           --
+           -- Rewriting the operator on the parsed tsquery rather than on the
+           -- raw input keeps websearch_to_tsquery's sanitising: the user's text
+           -- is never concatenated into a query string.
+           (
+               replace(websearch_to_tsquery('english', $2::text)::text, '&', '|')::tsquery ||
+               replace(websearch_to_tsquery('german',  $2::text)::text, '&', '|')::tsquery
+           ) AS q_tsq
 ),
 filtered AS (
     SELECT c.*
@@ -58,12 +80,10 @@ dense AS (
 ),
 sparse AS (
     SELECT f.id,
-           row_number() OVER (
-               ORDER BY ts_rank_cd(f.search_tsv, plainto_tsquery('simple', p.q_text)) DESC
-           ) AS rnk,
-           ts_rank_cd(f.search_tsv, plainto_tsquery('simple', p.q_text)) AS score
+           row_number() OVER (ORDER BY ts_rank_cd(f.search_tsv, p.q_tsq) DESC) AS rnk,
+           ts_rank_cd(f.search_tsv, p.q_tsq) AS score
     FROM filtered f CROSS JOIN params p
-    WHERE f.search_tsv @@ plainto_tsquery('simple', p.q_text)
+    WHERE f.search_tsv @@ p.q_tsq
     ORDER BY score DESC
     LIMIT 50
 ),

@@ -240,7 +240,17 @@ func (s *Store) ListQuestions(ctx context.Context, courseID uuid.UUID, f domain.
 		add("q.question_type = $%d::question_type", *f.QuestionType)
 	}
 	if f.Query != "" {
-		add("q.search_tsv @@ plainto_tsquery('simple', $%d)", f.Query)
+		// Same rewrite as hybrid search: both dictionaries, because the corpus
+		// is bilingual, and OR rather than AND, or a filter phrased as a
+		// sentence matches nothing. The placeholder is repeated because `add`
+		// binds one argument, and repeating it is cheaper than a second bind of
+		// the same string.
+		args = append(args, f.Query)
+		n := len(args)
+		where = append(where, fmt.Sprintf(
+			"q.search_tsv @@ ("+
+				"replace(websearch_to_tsquery('english', $%d)::text, '&', '|')::tsquery || "+
+				"replace(websearch_to_tsquery('german',  $%d)::text, '&', '|')::tsquery)", n, n))
 	}
 
 	clause := " WHERE " + joinAnd(where)

@@ -50,9 +50,9 @@ type Decision struct {
 	// course structure, not a semantic property of the question text.
 	ChapterNumbers []int
 	// Marks is set when the query constrains question weight.
-	Marks *MarksFilter
-	YearFrom      *int
-	YearTo        *int
+	Marks    *MarksFilter
+	YearFrom *int
+	YearTo   *int
 	// QuestionType is the format the user asked for ("true/false questions"),
 	// empty when they named none. Filtering on a format the corpus does not
 	// contain must return nothing rather than silently widening the query.
@@ -63,7 +63,26 @@ type Decision struct {
 }
 
 var (
-	reAnalyse = regexp.MustCompile(`(?i)\b(most|frequen\w*|often|trend|distribution|how many|statistic\w*|häufig\w*|verteilung)\b`)
+	// Analyse asks a question *about the corpus*, not about the subject.
+	//
+	// The words that distinguish it are dangerous on their own, because this is
+	// a statistics course and its vocabulary is the same vocabulary. The
+	// evaluation harness caught "Derive the canonical link for the Poisson
+	// distribution" being answered with a chapter-frequency table, because the
+	// rule matched the bare word "distribution". "Statistic" was worse still:
+	// every F-statistic and test statistic in the corpus would have tripped it.
+	//
+	// The corpus-level words are now only accepted when attached to something
+	// about the corpus: a distribution *of questions*, the *most tested*
+	// chapter. A distribution of a random variable stays an explanation.
+	reAnalyse = regexp.MustCompile(`(?i)` +
+		`\b(?:how many|frequen\w*|häufig\w*)\b` +
+		`|\bmost\s+(?:frequently|commonly|often|tested|asked|examined)\b` +
+		`|\b(?:tested|asked|examined|appears?|appeared)\s+most\b` +
+		`|\b(?:distribution|verteilung|breakdown|trend)\s+(?:of|über|von)\s+` +
+		`(?:the\s+|die\s+|der\s+)?(?:question|topic|chapter|exam|mark|point|kapitel|frage|aufgabe)\w*\b` +
+		`|\bwhich\s+(?:chapter|topic|kapitel|thema)\w*\s+(?:is|are|were|was|ist|sind)\b` +
+		`|\bstatistics\s+(?:on|about|for|über)\b`)
 	reSimilar = regexp.MustCompile(`(?i)\b(similar|like this|same kind|repeated|appeared before|come up before|ähnlich\w*)\b`)
 	reList    = regexp.MustCompile(`(?i)\b(all|list|every|show me|give me|which questions|alle|liste|zeig)\b`)
 	reExplain = regexp.MustCompile(`(?i)\b(why|how|explain|derive|prove|meaning|what is|what does|warum|wie|erkläre|erklär|was ist)\b`)

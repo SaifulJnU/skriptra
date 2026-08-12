@@ -6,7 +6,12 @@
 //
 // It drives the real HTTP endpoint rather than calling packages directly, so it
 // measures the system a user actually gets, including routing, filters and the
-// prompt.
+// prompt. That includes authentication: the harness signs in like any other
+// client, and the account it uses must be a member of the course under test,
+// or every case comes back as a 404 that looks like an empty corpus.
+//
+// Credentials come from EVAL_EMAIL and EVAL_PASSWORD, defaulting to the
+// development account in dev/seed.sql.
 package main
 
 import (
@@ -29,8 +34,15 @@ func main() {
 		baseline = flag.String("baseline", "../eval/baseline.json", "baseline metrics")
 		update   = flag.Bool("update", false, "write current results as the new baseline")
 		verbose  = flag.Bool("v", false, "print every case")
+		email    = flag.String("email", envOr("EVAL_EMAIL", "saiful@example.com"), "account to run as")
+		password = flag.String("password", envOr("EVAL_PASSWORD", "skriptra-dev-password"), "account password")
 	)
 	flag.Parse()
+
+	client := &apiClient{base: *apiURL, email: *email, password: *password}
+	if err := client.signIn(); err != nil {
+		fatal("signing in as %s: %v", *email, err)
+	}
 
 	g, err := eval.LoadGolden(*golden)
 	if err != nil {
@@ -39,7 +51,7 @@ func main() {
 
 	results := make([]eval.Result, 0, len(g.Cases))
 	for _, c := range g.Cases {
-		got, err := ask(*apiURL, g.CourseID.String(), c.Question)
+		got, err := client.ask(g.CourseID.String(), c.Question)
 		if err != nil {
 			fatal("case %s: %v", c.ID, err)
 		}
@@ -87,9 +99,9 @@ func main() {
 
 // askResponse mirrors the non-streamed /ask body.
 type askResponse struct {
-	Intent    string `json:"intent"`
-	Answer    string `json:"answer"`
-	Sources   []struct {
+	Intent  string `json:"intent"`
+	Answer  string `json:"answer"`
+	Sources []struct {
 		QuestionNumber string `json:"questionNumber"`
 	} `json:"sources"`
 	Questions []struct {
@@ -100,18 +112,83 @@ type askResponse struct {
 	} `json:"questions"`
 }
 
-func ask(base, courseID, question string) (eval.Retrieved, error) {
+// apiClient holds the session the harness runs under.
+//
+// Access tokens last fifteen minutes and a full run over the golden set can
+// take longer than that, because the explain cases each wait on a model. The
+// client therefore signs in again on a 401 and retries the case once, rather
+// than failing a run half way through for a reason that has nothing to do with
+// retrieval quality.
+type apiClient struct {
+	base     string
+	email    string
+	password string
+	token    string
+}
+
+func (c *apiClient) signIn() error {
+	body, _ := json.Marshal(map[string]string{"email": c.email, "password": c.password})
+
+	res, err := http.Post(c.base+"/auth/login", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("login returned %d, is the account seeded and the API running?", res.StatusCode)
+	}
+
+	var session struct {
+		AccessToken string `json:"accessToken"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&session); err != nil {
+		return err
+	}
+	if session.AccessToken == "" {
+		return fmt.Errorf("login returned no access token")
+	}
+	c.token = session.AccessToken
+	return nil
+}
+
+func (c *apiClient) ask(courseID, question string) (eval.Retrieved, error) {
+	return c.askOnce(courseID, question, true)
+}
+
+func (c *apiClient) askOnce(courseID, question string, retry bool) (eval.Retrieved, error) {
 	body, _ := json.Marshal(map[string]any{
 		"courseId": courseID, "question": question, "stream": false,
 	})
 
+	req, err := http.NewRequest(http.MethodPost, c.base+"/ask", bytes.NewReader(body))
+	if err != nil {
+		return eval.Retrieved{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
 	started := time.Now()
-	res, err := http.Post(base+"/ask", "application/json", bytes.NewReader(body))
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return eval.Retrieved{}, err
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusUnauthorized && retry {
+		if err := c.signIn(); err != nil {
+			return eval.Retrieved{}, fmt.Errorf("re-authenticating mid-run: %w", err)
+		}
+		return c.askOnce(courseID, question, false)
+	}
+
+	if res.StatusCode == http.StatusNotFound {
+		// Membership, not a missing route. A 404 here means the eval account is
+		// not a member of the course under test, which would otherwise be
+		// scored as a corpus that answers nothing.
+		return eval.Retrieved{}, fmt.Errorf(
+			"API returned 404 for course %s, is %s a member of it?", courseID, c.email)
+	}
 	if res.StatusCode != http.StatusOK {
 		return eval.Retrieved{}, fmt.Errorf("API returned %d", res.StatusCode)
 	}

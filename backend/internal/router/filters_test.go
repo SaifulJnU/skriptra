@@ -36,9 +36,9 @@ func TestResolveMultipleChapters(t *testing.T) {
 
 func TestResolveMarks(t *testing.T) {
 	cases := []struct {
-		query           string
+		query            string
 		wantMin, wantMax *float64
-		wantLabel       string
+		wantLabel        string
 	}{
 		{query: "questions worth 1 mark", wantMin: f(1), wantMax: f(1), wantLabel: "worth 1 mark"},
 		{query: "the 10 mark questions", wantMin: f(10), wantMax: f(10), wantLabel: "worth 10 marks"},
