@@ -19,14 +19,40 @@ import (
 // every count and skew the analytics the product is supposed to make
 // trustworthy.
 func (s *Store) CreateDocument(ctx context.Context, courseID uuid.UUID, filename, kind, storageKey, contentHash string, sizeBytes int64, year *int, term *string) (uuid.UUID, bool, error) {
+	// Deduplication only applies to a document that is actually usable.
+	//
+	// The row is written before ingestion runs, so a failed ingest leaves one
+	// behind. Treating that as a duplicate made the failure permanent: the user
+	// re-uploaded the same file, was told it already existed, and had no way to
+	// retry short of finding and deleting the document. A failed document is a
+	// record of something that did not work, not a reason to refuse the work.
+	//
+	// The same applies to one stuck mid-flight. A worker killed between claiming
+	// a job and finishing it leaves a row in 'parsing' forever, and re-uploading
+	// is the obvious thing a user tries. Thirty minutes is well beyond any real
+	// ingestion, so a document still unfinished after it is not in progress, it
+	// is abandoned.
 	var id uuid.UUID
+	var retryable bool
 	err := s.pool.QueryRow(ctx, `
-		SELECT id FROM documents WHERE course_id = $1 AND content_hash = $2`,
-		courseID, contentHash).Scan(&id)
-	if err == nil {
+		SELECT id,
+		       status = 'failed'
+		       OR (status <> 'indexed' AND uploaded_at < now() - interval '30 minutes')
+		FROM documents WHERE course_id = $1 AND content_hash = $2`,
+		courseID, contentHash).Scan(&id, &retryable)
+	switch {
+	case err == nil && !retryable:
 		return id, true, nil
-	}
-	if err != pgx.ErrNoRows {
+	case err == nil:
+		// Reset and hand it back to the caller to re-queue. Reusing the row
+		// rather than inserting a second one keeps the content hash unique and
+		// preserves the document's identity, so anything already linked to it
+		// still resolves.
+		if err := s.resetForRetry(ctx, id, storageKey, sizeBytes); err != nil {
+			return uuid.Nil, false, err
+		}
+		return id, false, nil
+	case err != pgx.ErrNoRows:
 		return uuid.Nil, false, err
 	}
 
@@ -51,6 +77,46 @@ func (s *Store) CreateDocument(ctx context.Context, courseID uuid.UUID, filename
 		return uuid.Nil, false, err
 	}
 	return id, false, tx.Commit(ctx)
+}
+
+// resetForRetry puts a failed document back to queued and clears the evidence
+// of the previous attempt, so its status reads as work in progress rather than
+// a failure that happens to be running.
+//
+// The storage key is refreshed because the retry writes a new file: the old one
+// may have been partially written or removed by whatever failed.
+func (s *Store) resetForRetry(ctx context.Context, documentID uuid.UUID, storageKey string, sizeBytes int64) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE documents
+		SET status = 'queued', storage_key = $2, size_bytes = $3, page_count = NULL
+		WHERE id = $1`, documentID, storageKey, sizeBytes); err != nil {
+		return err
+	}
+
+	// One job row per document, keyed on it, so a retry resets the existing row
+	// rather than inserting a second and violating the primary key.
+	//
+	// attempts is incremented rather than cleared: a document that has failed
+	// four times is worth knowing about, and resetting the count would hide a
+	// file that never succeeds behind a status that reads as freshly queued.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO ingest_jobs (document_id, status)
+		VALUES ($1, 'queued')
+		ON CONFLICT (document_id) DO UPDATE
+		SET status = 'queued', progress = 0, stage_detail = NULL, error = NULL,
+		    questions_extracted = 0, attempts = ingest_jobs.attempts + 1,
+		    started_at = NULL, completed_at = NULL, updated_at = now()`,
+		documentID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (s *Store) SetStatus(ctx context.Context, documentID uuid.UUID, status string, progress float64, detail string) error {

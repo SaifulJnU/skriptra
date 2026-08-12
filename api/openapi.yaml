@@ -500,6 +500,13 @@ paths:
         Files are content-hashed on upload. Re-uploading a document that already
         exists in the course returns `200` with the existing document rather than
         creating a duplicate.
+
+        Deduplication applies only to a document that is usable. A previous
+        attempt that **failed**, or one abandoned mid-ingestion for more than
+        thirty minutes, is re-queued and returns `202`: the row is written
+        before ingestion runs, so treating a failure as a duplicate would make
+        it permanent and leave the user re-uploading a file they are told
+        already exists.
       requestBody:
         required: true
         content:
