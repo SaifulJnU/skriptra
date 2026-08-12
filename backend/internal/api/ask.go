@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -65,6 +66,13 @@ func (s *Server) ask(c *gin.Context) {
 		return
 	}
 
+	// Checked before any work: the course arrives in the body, so the path
+	// guard cannot see it, and answering from a corpus the caller has no claim
+	// on is the exact failure membership exists to prevent.
+	if !s.mayAccessCourse(c, req.CourseID) {
+		return
+	}
+
 	started := time.Now()
 
 	// The taxonomy is what lets "the maximum likelihood chapter" resolve to a
@@ -90,23 +98,97 @@ func (s *Server) ask(c *gin.Context) {
 		req.Filters.YearTo = decision.YearTo
 	}
 
+	// The thread is resolved before any work is done, so an id that does not
+	// belong to this user fails with 404 rather than after an answer has been
+	// generated and paid for.
+	user := currentUser(c)
+	conversationID, err := s.store.StartOrContinueConversation(
+		c, req.CourseID, user, req.ConversationID, req.Question)
+	if err != nil {
+		s.respond(c, err, nil)
+		return
+	}
+
+	// History is read before the question is appended, so the current turn does
+	// not appear in its own context.
+	var history []domain.Message
+	if req.ConversationID != nil {
+		if history, err = s.store.RecentMessages(c, conversationID, historyTurns); err != nil {
+			s.log.Warn("read conversation history", "conversation", conversationID, "error", err)
+		}
+	}
+
+	// Recorded before generation. A question that failed to produce an answer is
+	// still something the student asked, and losing it would make the thread
+	// read as if they never asked.
+	if _, err := s.store.AppendMessage(c, conversationID, domain.Message{
+		Role:    domain.RoleUser,
+		Content: req.Question,
+	}); err != nil {
+		s.log.Error("persist question", "conversation", conversationID, "error", err)
+	}
+
+	t := turn{conversationID: conversationID, history: history}
+
 	w := newWriter(c, req.Stream)
 	defer w.close()
 	w.event("intent", gin.H{"intent": decision.Intent})
 
 	switch decision.Intent {
 	case domain.IntentAnalyse:
-		s.answerAnalyse(c, w, req, started)
+		s.answerAnalyse(c, w, t, req, started)
 	case domain.IntentEnumerate:
-		s.answerEnumerate(c, w, req, decision, started)
+		s.answerEnumerate(c, w, t, req, decision, started)
 	default:
-		s.answerExplain(c, w, req, decision, started)
+		s.answerExplain(c, w, t, req, decision, started)
 	}
+}
+
+// historyTurns caps how much of a thread is replayed to the model.
+//
+// Six messages is three exchanges, which covers the follow-ups students
+// actually ask ("why?", "show me an example of that") without letting an old
+// thread crowd out the retrieved passages, which are what the answer must
+// actually come from.
+const historyTurns = 6
+
+// turn is the conversation a request belongs to, threaded through the answer
+// paths so each one persists its result the same way.
+type turn struct {
+	conversationID uuid.UUID
+	history        []domain.Message
+}
+
+// finish records the assistant's turn and sends the terminal payload.
+//
+// Persistence failure is logged, not surfaced: the student has their answer,
+// and replacing it with an error because a history row could not be written
+// would be a worse outcome than a gap in the thread.
+func (s *Server) finish(c *gin.Context, w *writer, t turn, a domain.Answer) {
+	a.ConversationID = t.conversationID
+	if a.Sources == nil {
+		a.Sources = []domain.Citation{}
+	}
+
+	id, err := s.store.AppendMessage(c, t.conversationID, domain.Message{
+		Role:    domain.RoleAssistant,
+		Content: a.Answer,
+		Intent:  a.Intent,
+		Sources: a.Sources,
+		Usage:   a.Usage,
+	})
+	if err != nil {
+		s.log.Error("persist answer", "conversation", t.conversationID, "error", err)
+		id = uuid.New()
+	}
+	a.MessageID = id
+
+	w.done(a)
 }
 
 // answerAnalyse serves the aggregate path. No model is invoked at all, so the
 // figures are exact and the response is immediate.
-func (s *Server) answerAnalyse(c *gin.Context, w *writer, req askRequest, started time.Time) {
+func (s *Server) answerAnalyse(c *gin.Context, w *writer, t turn, req askRequest, started time.Time) {
 	freq, err := s.store.ChapterFrequency(c, req.CourseID, req.Filters.YearFrom, req.Filters.YearTo)
 	if err != nil {
 		w.fail(err)
@@ -131,9 +213,7 @@ func (s *Server) answerAnalyse(c *gin.Context, w *writer, req askRequest, starte
 
 	w.event("sources", gin.H{"sources": []domain.Citation{}})
 	w.stream(text)
-	w.done(domain.Answer{
-		ConversationID: uuid.New(),
-		MessageID:      uuid.New(),
+	s.finish(c, w, t, domain.Answer{
 		Intent:         domain.IntentAnalyse,
 		Answer:         text,
 		Sources:        []domain.Citation{},
@@ -143,7 +223,7 @@ func (s *Server) answerAnalyse(c *gin.Context, w *writer, req askRequest, starte
 
 // answerEnumerate serves the exhaustive path, SQL, not retrieval. Top-k has no
 // notion of completeness, so it is not asked for one.
-func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d router.Decision, started time.Time) {
+func (s *Server) answerEnumerate(c *gin.Context, w *writer, t turn, req askRequest, d router.Decision, started time.Time) {
 	f := domain.QuestionFilters{
 		ChapterNumber:  d.ChapterNumber,
 		ChapterNumbers: d.ChapterNumbers,
@@ -227,9 +307,7 @@ func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d ro
 
 	w.event("sources", gin.H{"sources": sources, "questions": questions})
 	w.stream(text)
-	w.done(domain.Answer{
-		ConversationID: uuid.New(),
-		MessageID:      uuid.New(),
+	s.finish(c, w, t, domain.Answer{
 		Intent:         domain.IntentEnumerate,
 		Answer:         text,
 		Sources:        sources,
@@ -240,7 +318,7 @@ func (s *Server) answerEnumerate(c *gin.Context, w *writer, req askRequest, d ro
 
 // answerExplain is the only path that reaches a model, and it does so with
 // retrieved passages and a refusal instruction.
-func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d router.Decision, started time.Time) {
+func (s *Server) answerExplain(c *gin.Context, w *writer, t turn, req askRequest, d router.Decision, started time.Time) {
 	vectors, err := s.embedder.Embed(c, []string{req.Question})
 	if err != nil {
 		w.fail(err)
@@ -259,9 +337,7 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d rout
 		const text = "**No indexed passage covers that.**\n\nNothing in the uploaded material for this course matches the question. Try rephrasing it, or upload the relevant paper or notes."
 		w.event("sources", gin.H{"sources": []domain.Citation{}})
 		w.stream(text)
-		w.done(domain.Answer{
-			ConversationID: uuid.New(),
-			MessageID:      uuid.New(),
+		s.finish(c, w, t, domain.Answer{
 			Intent:         d.Intent,
 			Answer:         text,
 			Sources:        []domain.Citation{},
@@ -277,12 +353,18 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d rout
 		fmt.Fprintf(&ctxBuf, "[%d] (%s)\n%s\n\n", i+1, h.Citation.Label, h.Text)
 	}
 
+	// Earlier turns go in ahead of the passages so a follow-up like "why is
+	// that?" has a referent. Retrieval still runs on the current question
+	// alone: letting an old turn steer the search is how a thread drifts onto
+	// material the student stopped asking about three questions ago.
+	msgs := make([]provider.Message, 0, len(t.history)+2)
+	msgs = append(msgs, provider.Message{Role: provider.RoleSystem, Content: systemPrompt})
+	msgs = append(msgs, priorTurns(t.history)...)
+	msgs = append(msgs, provider.Message{Role: provider.RoleUser, Content: fmt.Sprintf(
+		"Retrieved passages:\n\n%s\nQuestion: %s", ctxBuf.String(), req.Question)})
+
 	genReq := provider.GenerateRequest{
-		Messages: []provider.Message{
-			{Role: provider.RoleSystem, Content: systemPrompt},
-			{Role: provider.RoleUser, Content: fmt.Sprintf(
-				"Retrieved passages:\n\n%s\nQuestion: %s", ctxBuf.String(), req.Question)},
-		},
+		Messages:    msgs,
 		Temperature: 0.2,
 		MaxTokens:   800,
 	}
@@ -343,14 +425,49 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, req askRequest, d rout
 		usage.RetrievedChunks = 0
 	}
 
-	w.done(domain.Answer{
-		ConversationID: uuid.New(),
-		MessageID:      uuid.New(),
+	s.finish(c, w, t, domain.Answer{
 		Intent:         d.Intent,
 		Answer:         answer,
 		Sources:        sources,
 		Usage:          &usage,
 	})
+}
+
+// priorTurns renders stored history as model messages.
+//
+// Assistant turns are truncated hard. A full previous answer can run to eight
+// hundred tokens, and three of them would consume more of the window than the
+// passages the current answer has to be grounded in. The opening is enough to
+// resolve a pronoun, which is all history is here to do.
+//
+// Refusals are dropped entirely: replaying "no indexed passage covers that"
+// teaches the model that refusing is the expected shape of an answer, and it
+// starts refusing questions the corpus does cover.
+func priorTurns(history []domain.Message) []provider.Message {
+	const maxAssistantChars = 600
+
+	out := make([]provider.Message, 0, len(history))
+	for _, m := range history {
+		content := m.Content
+		role := provider.RoleUser
+		if m.Role == domain.RoleAssistant {
+			if isRefusal(content) || strings.HasPrefix(content, "**No indexed passage") {
+				continue
+			}
+			role = provider.RoleAssistant
+			// Cut on a rune boundary. The corpus is bilingual and slicing a
+			// German umlaut in half produces an invalid UTF-8 sequence that
+			// some providers reject outright.
+			if utf8.RuneCountInString(content) > maxAssistantChars {
+				content = string([]rune(content)[:maxAssistantChars]) + "..."
+			}
+		}
+		if strings.TrimSpace(content) == "" {
+			continue
+		}
+		out = append(out, provider.Message{Role: role, Content: content})
+	}
+	return out
 }
 
 // reRefusal matches the sentinel tolerantly.
@@ -395,7 +512,7 @@ func citationFor(q domain.Question) domain.Citation {
 		Page:           q.SourcePage,
 		QuestionID:     &id,
 		QuestionNumber: q.Number,
-		Label:          fmt.Sprintf("%s Â· Q%s Â· Page %d", title, q.Number, q.SourcePage),
+		Label:          fmt.Sprintf("%s · Q%s · Page %d", title, q.Number, q.SourcePage),
 	}
 }
 

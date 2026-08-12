@@ -2,7 +2,7 @@
 
 **If you are Claude resuming this project in a new session: read this file, then `docs/00-DESIGN.md`, then continue from "Next step" below. Do not re-plan; the decisions are already made.**
 
-Last updated: 9 August 2026
+Last updated: 11 August 2026
 
 ---
 
@@ -57,9 +57,11 @@ Once that flow works end to end, the product skeleton exists.
 | 6 | docker-compose local stack | DONE |
 | 7 | React frontend against mock data | DONE, all six screens render, typecheck clean |
 | 8 | **Go API implementation** | **DONE**: all read endpoints + `/ask` + `/search`, serving real Postgres |
-| 9 | **Ingestion pipeline** | **Built.** Parse, segment, classify verified on a real PDF. Full run through embeddings not yet executed. |
-| 10 | **Eval harness** | **Built.** 16 golden cases, metrics, regression gate. Baseline not yet recorded. |
-| 11 | CI workflow | Built. Backend, migrations up/down/up, frontend. Eval job written but commented out. |
+| 9 | **Ingestion pipeline** | **DONE**, verified on a genuine TU Dortmund paper. |
+| 10 | **Eval harness** | **Built.** 16 golden cases, metrics, regression gate. Baseline still not recorded. |
+| 11 | CI workflow | Green. Backend, all migrations up/down/up, frontend. Eval job written but commented out. |
+| 12 | **Conversation history** | **DONE.** Threads and turns persist; the id `/ask` always returned now means something. |
+| 13 | **Authentication** | **DONE.** Argon2id passwords, JWT access tokens, rotating refresh tokens, course membership enforced. |
 
 ### What is verified, and what is not
 
@@ -72,6 +74,18 @@ Verified by execution:
 **Full ingestion verified on 10 Aug 2026.** `sample_exam.pdf` uploaded through the API, queued to NATS, consumed by the worker, and reached `indexed` with 6 questions extracted: correct numbers, marks and pages, chapters 1 to 5 assigned, and the administrative question left unclassified rather than forced into a chapter. Hybrid search over real `nomic-embed-text` vectors then ranked the F-test question first for a query sharing almost no vocabulary with it (0.721 dense, 0.000 sparse), so the match is semantic rather than lexical.
 
 That run also found two real bugs in the exam upsert that no unit test could have caught, because both packages were correct in isolation and the defect was in the wiring. Fixed in `5c3197a`.
+
+### Real exam papers, 11 August 2026
+
+`Exam Summer 2025.pdf`, a genuine TU Dortmund paper, ingests to 29 questions across 4 exercises with per-part marks and correct chapters. Four defects had to be fixed to get there: PDFs that do not encode their own spaces (a poppler-backed `/extract` endpoint), a Word reader being selected for a PDF (format-aware parser selection with a quality rank), lettered sub-parts being swallowed into their parent exercise (two-level segmentation), and true/false statements printed as bare answer boxes going untyped.
+
+"List all the true false questions" returns 13. "Which questions are worth 2 marks" returns 7.
+
+### Authentication and history, 11 August 2026
+
+The stub user is gone. Passwords are argon2id at the OWASP minimum, access tokens are 15-minute HS256 JWTs verified without a database read, refresh tokens are opaque, stored only as a hash, and rotated on every use. Course membership is enforced by middleware on the path parameter rather than by a check repeated in every handler, and a course you do not belong to answers 404 rather than 403.
+
+Conversations and messages now persist. Those tables were in the first migration and nothing had ever written to them, so `/ask` minted a conversation id per request and discarded it while the contract documented it as resumable.
 
 **Known weakness:** the keyword classifier put "Derive the ordinary least squares estimator for beta in the linear model" in chapter 1 (The Linear Model) rather than chapter 2 (Least Squares Estimation). Both chapters legitimately match. This is exactly what the LLM fallback is for, but no chat model was pulled during the test, so classification ran keyword-only. Pull a chat model and re-run to see whether the fallback resolves it, and use the eval harness to measure rather than guess.
 
@@ -129,17 +143,15 @@ Then open http://localhost:5173. The app runs entirely on the mock adapter, so n
 
 ## Next step
 
-**Task 9, the ingestion pipeline.** Everything downstream of it is built and proven, so this is now the only thing standing between the system and real documents:
+**Record the eval baseline.** It is the last unfinished item in the original build order and the highest-value one left for interviews, because measuring retrieval quality is the thing almost no portfolio RAG project does:
 
-1. `POST /courses/{id}/documents`, accept an upload, content-hash it, write the row, publish `document.uploaded` to NATS.
-2. Worker: consume the job, extract text and page numbers via the `ingest.Chain`. DONE: `ledongthuc/pdf` for PDFs, `archive/zip` for Word, and a Tesseract sidecar for photos and scans.
-3. Segment pages into questions, try rules first (`Aufgabe N` / `Question N` headings) and measure before reaching for anything cleverer.
-4. Classify each question against the chapter taxonomy; store confidence.
-5. Embed chunks and questions through the `Embedder` interface; write to `chunks` and `question_embeddings`.
+```bash
+cd backend && go run ./cmd/eval -update
+```
 
-**Before starting, do the two-minute check:** open a real past paper and try to select the text. It selects → the Go path is correct. It does not → it is a scan, and the Python OCR adapter gets registered behind the existing `ingest.Chain` seam.
+Then uncomment the eval job at the bottom of `.github/workflows/ci.yml` so a retrieval regression fails the build.
 
-Then task 10, the eval harness, which is the highest-value remaining item for interviews.
+After that, deployment. Sizing is settled: t4g.large, 2 vCPU and 8 GiB, 40 GB gp3, in eu-central-1, running everything except the chat model, which goes to a hosted provider through the existing `LLM` interface. CPU inference on 2 vCPU streams at 3 to 6 tokens per second, which is slow enough to ruin a demo.
 
 ---
 

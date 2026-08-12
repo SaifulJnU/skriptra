@@ -172,6 +172,36 @@ export interface Answer {
   usage?: Usage;
 }
 
+/** A thread of questions and answers about one course. */
+export interface Conversation {
+  id: string;
+  courseId: string;
+  /** Taken from the first question asked, truncated at a word break. */
+  title: string;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * One turn. Citations are stored on the message rather than resolved at read
+ * time, so a past answer reads exactly as it was given even after the document
+ * it cited has been deleted or re-ingested.
+ */
+export interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  intent?: QueryIntent;
+  sources: Citation[];
+  usage?: Usage;
+  createdAt: string;
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: Message[];
+}
+
 export interface RetrievalFilters {
   chapterIds?: string[];
   chapterNumbers?: number[];

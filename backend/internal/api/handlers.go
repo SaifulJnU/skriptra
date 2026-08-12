@@ -21,12 +21,18 @@ func (s *Server) health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// me returns the single-user stub. The authorization *checks* are the point of
-// having this now; the identity behind them gets real in phase 2.
+// me returns the authenticated user, resolved from the access token rather
+// than from anything the client sent in the body.
 func (s *Server) me(c *gin.Context) {
+	account, err := s.store.AccountByID(c, currentUser(c))
+	if err != nil {
+		s.respond(c, err, nil)
+		return
+	}
 	c.JSON(http.StatusOK, domain.User{
-		ID:          uuid.MustParse("11111111-1111-1111-1111-111111111111"),
-		DisplayName: "Saiful",
+		ID:          account.ID,
+		DisplayName: account.DisplayName,
+		Email:       account.Email,
 	})
 }
 
@@ -47,7 +53,7 @@ func (s *Server) providers(c *gin.Context) {
 
 func (s *Server) listCourses(c *gin.Context) {
 	page, size := pagination(c, 20, 100)
-	courses, total, err := s.store.ListCourses(c, page, size)
+	courses, total, err := s.store.ListCourses(c, currentUser(c), page, size)
 	if err != nil {
 		s.respond(c, err, nil)
 		return
@@ -262,6 +268,10 @@ func (s *Server) search(c *gin.Context) {
 	}
 	if req.Limit <= 0 || req.Limit > 50 {
 		req.Limit = 10
+	}
+	// The course arrives in the body, so the path guard cannot see it.
+	if !s.mayAccessCourse(c, req.CourseID) {
+		return
 	}
 
 	vectors, err := s.embedder.Embed(c, []string{req.Query})

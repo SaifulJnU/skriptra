@@ -16,8 +16,12 @@ TRUNCATE users, courses, chapters, documents, exams, questions,
          chunks, question_embeddings, ingest_jobs, course_members,
          conversations, messages RESTART IDENTITY CASCADE;
 
-INSERT INTO users (id, display_name, email)
-VALUES ('11111111-1111-1111-1111-111111111111', 'Saiful', 'saiful@example.com');
+-- The development account. The hash is argon2id over "skriptra-dev-password";
+-- it is checked in deliberately so a fresh clone can log in, and it is why this
+-- file must never be loaded into a deployment that is reachable from outside.
+INSERT INTO users (id, display_name, email, password_hash)
+VALUES ('11111111-1111-1111-1111-111111111111', 'Saiful', 'saiful@example.com',
+        '$argon2id$v=19$m=19456,t=2,p=1$j4/0i/5ZsbaRHiDlu7h4BA$UmHSMaf0SSiaDDZyKQ3xSZ7u871veQaWJ5hWwSVaE8U');
 
 INSERT INTO courses (id, name, code, institution, language, created_by) VALUES
  ('22222222-2222-2222-2222-222222222222', 'Linear Models', 'STAT-412', 'TU Dortmund', 'en',

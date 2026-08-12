@@ -31,6 +31,9 @@ type Config struct {
 	StorageDir  string
 	MaxUploadMB int
 
+	JWTSecret    string
+	CookieSecure bool
+
 	LLM       provider.Settings
 	Embedding provider.Settings
 
@@ -58,6 +61,12 @@ func Load() (*Config, error) {
 		StorageDir:  env("STORAGE_DIR", "./data/uploads"),
 		MaxUploadMB: envInt("MAX_UPLOAD_MB", 50),
 
+		JWTSecret: env("JWT_SECRET", ""),
+		// Off by default so local development over plain HTTP works. Any
+		// deployment behind TLS must turn it on, and validate() insists on it
+		// outside development.
+		CookieSecure: envBool("COOKIE_SECURE", false),
+
 		LLM: provider.Settings{
 			Provider: env("LLM_PROVIDER", "ollama"),
 			Model:    env("LLM_MODEL", "llama3.1:8b"),
@@ -84,6 +93,24 @@ func (c *Config) validate() error {
 
 	if c.DatabaseURL == "" {
 		problems = append(problems, "DATABASE_URL is required")
+	}
+
+	// A short or absent signing secret means forgeable access tokens, so the
+	// process refuses to start rather than serving something that looks healthy
+	// and is trivially bypassed. Thirty-two bytes is the RFC 7518 floor for
+	// HS256: the key should be at least as long as the hash it feeds.
+	switch {
+	case c.JWTSecret == "":
+		problems = append(problems, "JWT_SECRET is required, generate one with: openssl rand -base64 48")
+	case len(c.JWTSecret) < 32:
+		problems = append(problems, fmt.Sprintf(
+			"JWT_SECRET must be at least 32 bytes, got %d", len(c.JWTSecret)))
+	}
+
+	// A session cookie sent over plain HTTP outside development is a session
+	// anyone on the network can take.
+	if c.Env != "development" && !c.CookieSecure {
+		problems = append(problems, "COOKIE_SECURE must be true outside development")
 	}
 	if c.LLM.Provider == "" {
 		problems = append(problems, "LLM_PROVIDER is required")
@@ -155,4 +182,14 @@ func envDuration(key string, def time.Duration) time.Duration {
 		}
 	}
 	return def
+}
+
+// envBool reads a boolean flag. Anything other than a recognised true value is
+// false, so a typo fails closed rather than silently enabling something.
+func envBool(key string, fallback bool) bool {
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	if raw == "" {
+		return fallback
+	}
+	return raw == "true" || raw == "1" || raw == "yes" || raw == "on"
 }

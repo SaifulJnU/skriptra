@@ -7,10 +7,13 @@
  * differently, rather than against a single generic "chat" response that would
  * hide the whole design.
  */
-import type { AskEvent, AskRequest, SkriptraApi } from "@/lib/api";
+import { ApiRequestError, type AskEvent, type AskRequest, type SkriptraApi } from "@/lib/api";
 import type {
   Citation,
+  Conversation,
+  Course,
   IngestStatus,
+  Message,
   Question,
   QueryIntent,
   SimilarQuestion,
@@ -26,6 +29,18 @@ import {
 } from "./data";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Courses created during this session, on top of the fixtures.
+ *
+ * A separate list rather than mutating the imported fixture array, so a reload
+ * returns the mock corpus to a known state.
+ */
+const mockCourses: Course[] = [];
+
+/** Threads and their turns, for the session only. */
+const mockConversations = new Map<string, Conversation>();
+const mockMessages = new Map<string, Message[]>();
 
 /** Documents uploaded during this session, so their status can advance. */
 const mockIngest = new Map<string, { started: number; filename: string }>();
@@ -188,7 +203,7 @@ export const mockApi: SkriptraApi = {
 
   async listCourses() {
     await delay(180);
-    return paged(courses, 1, 20);
+    return paged([...courses, ...mockCourses], 1, 20);
   },
 
   async getCourse(courseId) {
@@ -292,6 +307,45 @@ export const mockApi: SkriptraApi = {
     return paged(documents, 1, 50);
   },
 
+  async createCourse(input) {
+    await delay(200);
+    const course: Course = {
+      id: crypto.randomUUID(),
+      name: input.name,
+      code: input.code,
+      institution: input.institution,
+      language: input.language ?? "en",
+      examCount: 0,
+      questionCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    mockCourses.push(course);
+    return course;
+  },
+
+  // Threads live for the session only. The mock exists so the history sidebar
+  // can be designed against real states, empty included, without a server.
+  async listConversations(courseId) {
+    await delay(140);
+    const mine = [...mockConversations.values()]
+      .filter((c) => c.courseId === courseId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return paged(mine, 1, 20);
+  },
+
+  async getConversation(conversationId) {
+    await delay(120);
+    const convo = mockConversations.get(conversationId);
+    if (!convo) throw new ApiRequestError(404, "not_found", "No such conversation.");
+    return { ...convo, messages: mockMessages.get(conversationId) ?? [] };
+  },
+
+  async deleteConversation(conversationId) {
+    await delay(120);
+    mockConversations.delete(conversationId);
+    mockMessages.delete(conversationId);
+  },
+
   async documentStatus(documentId) {
     await delay(100);
 
@@ -347,6 +401,11 @@ export const mockApi: SkriptraApi = {
 
     const text = answerText(intent, chapterNo, matched, req.question);
 
+    // The thread is recorded here for the same reason the server records it
+    // before generating: a question that produced no answer is still something
+    // the student asked, and the sidebar should show it either way.
+    const conversationId = rememberTurn(req, text);
+
     // An answer that grounds nothing must cite nothing. Showing sources beside
     // "no indexed passage covers that" would be the exact dishonesty this
     // product exists to avoid.
@@ -373,8 +432,8 @@ export const mockApi: SkriptraApi = {
     onEvent({
       type: "done",
       answer: {
-        conversationId: req.conversationId ?? crypto.randomUUID(),
-        messageId: crypto.randomUUID(),
+        conversationId,
+        messageId: rememberAnswer(conversationId, streamed, intent, sources),
         intent,
         answer: streamed,
         sources,
@@ -438,3 +497,74 @@ export const mockApi: SkriptraApi = {
 };
 
 export { COURSE_ID };
+
+
+/**
+ * Records a question against a thread, creating one if this is the first turn.
+ * Returns the thread id so the answer can be filed under it.
+ */
+function rememberTurn(req: AskRequest, _text: string): string {
+  const now = new Date().toISOString();
+  let id = req.conversationId;
+
+  if (!id || !mockConversations.has(id)) {
+    id = crypto.randomUUID();
+    mockConversations.set(id, {
+      id,
+      courseId: req.courseId,
+      title: titleFor(req.question),
+      messageCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    mockMessages.set(id, []);
+  }
+
+  appendMessage(id, {
+    id: crypto.randomUUID(),
+    role: "user",
+    content: req.question,
+    sources: [],
+    createdAt: now,
+  });
+  return id;
+}
+
+function rememberAnswer(
+  conversationId: string,
+  content: string,
+  intent: QueryIntent,
+  sources: Citation[],
+): string {
+  const id = crypto.randomUUID();
+  appendMessage(conversationId, {
+    id,
+    role: "assistant",
+    content,
+    intent,
+    sources,
+    createdAt: new Date().toISOString(),
+  });
+  return id;
+}
+
+function appendMessage(conversationId: string, message: Message): void {
+  const turns = mockMessages.get(conversationId) ?? [];
+  turns.push(message);
+  mockMessages.set(conversationId, turns);
+
+  const convo = mockConversations.get(conversationId);
+  if (convo) {
+    convo.messageCount = turns.length;
+    convo.updatedAt = message.createdAt;
+  }
+}
+
+/** Mirrors the server: collapse whitespace, cut at a word break. */
+function titleFor(question: string): string {
+  const title = question.trim().split(/\s+/).join(" ");
+  if (title.length <= 80) return title;
+  const cut = title.slice(0, 80);
+  const space = cut.lastIndexOf(" ");
+  return (space > 40 ? cut.slice(0, space) : cut).replace(/[ ,.;:]+$/, "") + "...";
+}

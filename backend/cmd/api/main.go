@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/skriptra/skriptra/backend/internal/api"
+	"github.com/skriptra/skriptra/backend/internal/auth"
 	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
@@ -53,6 +54,13 @@ func run() error {
 	}
 	defer store.Close()
 
+	// Fails here on a weak or missing signing secret rather than serving
+	// forgeable tokens.
+	issuer, err := auth.NewIssuer(cfg.JWTSecret)
+	if err != nil {
+		return err
+	}
+
 	// Construct providers once, at startup. A bad provider name or a missing
 	// key should stop the process here, not surface as a confusing 500 on the
 	// first question a user asks.
@@ -86,7 +94,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(cfg, store, llm, embedder, q, cached, log).Routes(),
+		Handler:           api.New(cfg, store, llm, embedder, q, cached, issuer, log).Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 		// No WriteTimeout: /ask streams, and a write deadline would cut a long
 		// local generation off mid-answer. Cancellation is the request context.

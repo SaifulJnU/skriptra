@@ -11,9 +11,16 @@ import (
 
 // ---------------------------------------------------------------- courses --
 
-func (s *Store) ListCourses(ctx context.Context, page, pageSize int) ([]domain.Course, int, error) {
+// ListCourses returns the courses a user belongs to.
+//
+// Scoped by the join rather than filtered afterwards, so a course the caller is
+// not a member of never leaves the database. A count that included courses the
+// list then omitted would also make pagination lie.
+func (s *Store) ListCourses(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]domain.Course, int, error) {
 	var total int
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM courses`).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, `
+		SELECT count(*) FROM courses c
+		JOIN course_members m ON m.course_id = c.id AND m.user_id = $1`, userID).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -23,8 +30,9 @@ func (s *Store) ListCourses(ctx context.Context, page, pageSize int) ([]domain.C
 		       (SELECT count(*) FROM exams e     WHERE e.course_id = c.id),
 		       (SELECT count(*) FROM questions q WHERE q.course_id = c.id)
 		FROM courses c
+		JOIN course_members m ON m.course_id = c.id AND m.user_id = $1
 		ORDER BY c.created_at DESC, c.name
-		LIMIT $1 OFFSET $2`, pageSize, (page-1)*pageSize)
+		LIMIT $2 OFFSET $3`, userID, pageSize, (page-1)*pageSize)
 	if err != nil {
 		return nil, 0, err
 	}

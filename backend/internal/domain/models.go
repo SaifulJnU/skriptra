@@ -188,6 +188,43 @@ type Answer struct {
 	Usage          *Usage      `json:"usage,omitempty"`
 }
 
+// Conversation is a thread of questions and answers about one course.
+//
+// The title is taken from the first question asked, which is what a student
+// recognises the thread by. A generated title would need a model call per
+// conversation to produce something no more useful.
+type Conversation struct {
+	ID           uuid.UUID `json:"id"`
+	CourseID     uuid.UUID `json:"courseId"`
+	Title        string    `json:"title"`
+	MessageCount int       `json:"messageCount"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+const (
+	RoleUser      = "user"
+	RoleAssistant = "assistant"
+)
+
+// Message is one turn. Citations are stored on the message rather than resolved
+// at read time, so an answer stays exactly as it was given even after the
+// document it cited has been deleted or re-ingested.
+type Message struct {
+	ID        uuid.UUID   `json:"id"`
+	Role      string      `json:"role"`
+	Content   string      `json:"content"`
+	Intent    QueryIntent `json:"intent,omitempty"`
+	Sources   []Citation  `json:"sources"`
+	Usage     *Usage      `json:"usage,omitempty"`
+	CreatedAt time.Time   `json:"createdAt"`
+}
+
+type ConversationDetail struct {
+	Conversation
+	Messages []Message `json:"messages"`
+}
+
 type RetrievalFilters struct {
 	ChapterIDs         []uuid.UUID    `json:"chapterIds,omitempty"`
 	ChapterNumbers     []int          `json:"chapterNumbers,omitempty"`

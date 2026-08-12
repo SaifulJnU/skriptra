@@ -10,6 +10,8 @@
 import type {
   Answer,
   Chapter,
+  Conversation,
+  ConversationDetail,
   ChapterFrequencyResponse,
   Course,
   CourseDetail,
@@ -27,6 +29,7 @@ import type {
   SimilarQuestion,
   User,
 } from "@/types/api";
+import { getAccessToken, refreshOnce } from "@/lib/session";
 
 /** One frame of a streamed answer, mirroring the SSE event names in the spec. */
 export type AskEvent =
@@ -75,6 +78,17 @@ export interface SkriptraApi {
 
   listDocuments(courseId: string): Promise<Paged<Document>>;
   documentStatus(documentId: string): Promise<DocumentStatus>;
+
+  createCourse(input: {
+    name: string;
+    code?: string;
+    institution?: string;
+    language?: "en" | "de";
+  }): Promise<Course>;
+
+  listConversations(courseId: string): Promise<Paged<Conversation>>;
+  getConversation(conversationId: string): Promise<ConversationDetail>;
+  deleteConversation(conversationId: string): Promise<void>;
 
   /**
    * Uploads a document and returns as soon as it is queued.
@@ -135,11 +149,31 @@ export function documentFileURL(documentId: string, page?: number): string {
   return page ? `${url}#page=${page}` : url;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Every call carries the access token, and a 401 is retried once behind a
+ * refresh.
+ *
+ * The retry is what makes a 15-minute access token invisible to the user.
+ * Without it the app breaks every quarter of an hour, and the obvious
+ * workaround, a long-lived token, is the thing short expiry exists to avoid.
+ * Retried once only: a second 401 means the session is genuinely gone.
+ */
+async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
+  const token = getAccessToken();
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   });
+
+  if (res.status === 401 && retry) {
+    const session = await refreshOnce();
+    if (session) return request<T>(path, init, false);
+  }
 
   if (!res.ok) {
     let code = "unknown";
@@ -185,6 +219,15 @@ export const httpApi: SkriptraApi = {
   listDocuments: (id) => request(`/courses/${id}/documents`),
   documentStatus: (id) => request(`/documents/${id}/status`),
 
+  createCourse: (input) =>
+    request("/courses", { method: "POST", body: JSON.stringify(input) }),
+
+  listConversations: (id) => request(`/courses/${id}/conversations`),
+  getConversation: (id) => request(`/conversations/${id}`),
+  deleteConversation: async (id) => {
+    await request<void>(`/conversations/${id}`, { method: "DELETE" });
+  },
+
   /**
    * Parses the `text/event-stream` response by hand rather than using
    * EventSource, because EventSource cannot issue a POST and the ask endpoint
@@ -207,6 +250,9 @@ export const httpApi: SkriptraApi = {
 
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${BASE}/courses/${courseId}/documents`);
+      xhr.withCredentials = true;
+      const token = getAccessToken();
+      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) onProgress?.(e.loaded / e.total);
@@ -261,12 +307,19 @@ async function streamSSE(
   body: unknown,
   onEvent: (e: AskEvent) => void,
   signal?: AbortSignal,
+  retry = true,
 ): Promise<void> {
   let res: Response;
   try {
+    const token = getAccessToken();
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
       signal,
     });
@@ -274,6 +327,13 @@ async function streamSSE(
     if ((err as Error)?.name === "AbortError") return;
     onEvent({ type: "error", message: "Could not reach the server." });
     return;
+  }
+
+  // The same one-shot refresh as request(). An expired token must not surface
+  // as "something went wrong" mid-question.
+  if (res.status === 401 && retry) {
+    const session = await refreshOnce();
+    if (session) return streamSSE(url, body, onEvent, signal, false);
   }
 
   if (!res.ok || !res.body) {

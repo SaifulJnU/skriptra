@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skriptra/skriptra/backend/internal/auth"
 	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
@@ -34,6 +35,7 @@ type Server struct {
 	embedder provider.Embedder
 	queue    Publisher
 	cache    cache.Cache
+	issuer   *auth.Issuer
 	log      *slog.Logger
 
 	// Cached OCR reachability, see ocrAvailable.
@@ -41,11 +43,12 @@ type Server struct {
 	ocrCheckedAt time.Time
 }
 
-func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, q Publisher, c cache.Cache, log *slog.Logger) *Server {
+func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provider.Embedder, q Publisher, c cache.Cache, issuer *auth.Issuer, log *slog.Logger) *Server {
 	if c == nil {
 		c = cache.NoOp{}
 	}
-	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder, queue: q, cache: c, log: log}
+	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder,
+		queue: q, cache: c, issuer: issuer, log: log}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -60,29 +63,70 @@ func (s *Server) Routes() http.Handler {
 	// without breaking a shipped mobile client.
 	v1 := r.Group("/api/v1")
 	{
+		// Open: liveness is what a load balancer polls, and the auth endpoints
+		// are how a caller gets a token in the first place.
 		v1.GET("/healthz", s.health)
+		v1.POST("/auth/signup", s.signup)
+		v1.POST("/auth/login", s.login)
+		v1.POST("/auth/refresh", s.refresh)
+		v1.POST("/auth/logout", s.logout)
+	}
+
+	// Everything below requires a valid access token. Guarding the group
+	// rather than listing routes means a new endpoint is protected by default:
+	// an allow-list eventually misses one, and a missed one is an open
+	// endpoint nobody notices.
+	authed := r.Group("/api/v1", s.requireAuth())
+	{
+		v1 := authed
 		v1.GET("/me", s.me)
 		v1.GET("/providers", s.providers)
 
 		v1.GET("/courses", s.listCourses)
-		v1.GET("/courses/:courseId", s.getCourse)
-		v1.GET("/courses/:courseId/chapters", s.listChapters)
-		v1.GET("/courses/:courseId/exams", s.listExams)
-		v1.GET("/courses/:courseId/questions", s.listQuestions)
-		v1.GET("/courses/:courseId/documents", s.listDocuments)
-		v1.POST("/courses/:courseId/documents", s.uploadDocument)
-		v1.GET("/courses/:courseId/analytics/chapter-frequency", s.chapterFrequency)
+		v1.POST("/courses", s.createCourse)
 
-		v1.GET("/exams/:examId", s.getExam)
-		v1.GET("/questions/:questionId", s.getQuestion)
-		v1.GET("/questions/:questionId/similar", s.similarQuestions)
-		v1.POST("/questions/:questionId/solution", s.generateSolution)
+		// Membership is enforced on the path parameter, not inside each
+		// handler. One guard cannot be forgotten; seventeen repetitions of it
+		// eventually are.
+		course := v1.Group("/courses/:courseId", s.requireCourseMember())
+		{
+			course.GET("", s.getCourse)
+			course.GET("/chapters", s.listChapters)
+			course.GET("/exams", s.listExams)
+			course.GET("/questions", s.listQuestions)
+			course.GET("/documents", s.listDocuments)
+			course.POST("/documents", s.uploadDocument)
+			course.GET("/analytics/chapter-frequency", s.chapterFrequency)
+			course.GET("/conversations", s.listConversations)
+		}
 
+		// Already scoped by user in the query: a thread belonging to someone
+		// else is indistinguishable from one that does not exist.
+		v1.GET("/conversations/:conversationId", s.getConversation)
+		v1.DELETE("/conversations/:conversationId", s.deleteConversation)
+
+		// Addressed by a child id, so the course is resolved first and then
+		// checked. Without this an id leaked from another user's course would
+		// read straight through.
+		exam := v1.Group("/exams/:examId", s.courseGuard("examId", s.store.CourseIDForExam))
+		exam.GET("", s.getExam)
+
+		question := v1.Group("/questions/:questionId", s.courseGuard("questionId", s.store.CourseIDForQuestion))
+		{
+			question.GET("", s.getQuestion)
+			question.GET("/similar", s.similarQuestions)
+			question.POST("/solution", s.generateSolution)
+		}
+
+		document := v1.Group("/documents/:documentId", s.courseGuard("documentId", s.store.CourseIDForDocument))
+		{
+			document.GET("/status", s.documentStatus)
+			document.GET("/file", s.serveDocument)
+		}
+
+		// Both carry the course in the body, so they check it themselves.
 		v1.POST("/search", s.search)
 		v1.POST("/ask", s.ask)
-
-		v1.GET("/documents/:documentId/status", s.documentStatus)
-		v1.GET("/documents/:documentId/file", s.serveDocument)
 	}
 	return r
 }
@@ -112,6 +156,9 @@ func (s *Server) cors() gin.HandlerFunc {
 		if s.cfg.Env == "development" {
 			c.Header("Access-Control-Allow-Origin", "*")
 			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			// The refresh cookie only travels if the browser is told to send
+			// credentials cross-origin, which the dev server is.
+			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		}
 		if c.Request.Method == http.MethodOptions {

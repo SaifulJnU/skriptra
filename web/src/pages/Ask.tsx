@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUp, Database, FileText, Loader2, Mic, Sparkles, Square } from "lucide-react";
+import ConversationHistory from "@/components/ConversationHistory";
 import { api, usingMocks } from "@/lib/client";
 import { useVoiceInput } from "@/lib/useVoiceInput";
 import type { AskEvent } from "@/lib/api";
@@ -49,9 +51,13 @@ export default function Ask() {
   const [params] = useSearchParams();
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
+  // The thread this page is currently in. Null means the next question starts
+  // a new one, which is what "New conversation" resets it to.
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const autoAsked = useRef(false);
+  const queryClient = useQueryClient();
 
   const busy = turns.some((t) => t.streaming);
 
@@ -93,7 +99,7 @@ export default function Ask() {
       setTurns((prev) => prev.map((t, i) => (i === index ? fn(t) : t)));
 
     await api.ask(
-      { courseId, question },
+      { courseId, question, conversationId: conversationId ?? undefined },
       (e: AskEvent) => {
         switch (e.type) {
           case "intent":
@@ -115,6 +121,11 @@ export default function Ask() {
               usage: e.answer.usage,
               sources: e.answer.sources ?? [],
             }));
+            // The server decides the thread id: it created one if none was
+            // sent. Recording it here is what turns the next question into a
+            // follow-up rather than a fresh conversation.
+            setConversationId(e.answer.conversationId);
+            queryClient.invalidateQueries({ queryKey: ["conversations", courseId] });
             break;
           case "error":
             // Drop any citations already received. A failed answer grounds
@@ -139,8 +150,52 @@ export default function Ask() {
     patch((t) => ({ ...t, streaming: false }));
   }
 
+  // Loading a past thread replaces the transcript with its stored turns.
+  // Citations come from the message rather than being re-retrieved, so an old
+  // answer reads exactly as it was given.
+  async function openConversation(id: string) {
+    abortRef.current?.abort();
+    const convo = await api.getConversation(id);
+    setConversationId(id);
+
+    const restored: Turn[] = [];
+    for (const m of convo.messages) {
+      if (m.role === "user") {
+        restored.push({ question: m.content, text: "", sources: [], streaming: false });
+        continue;
+      }
+      const last = restored[restored.length - 1];
+      if (last) {
+        last.text = m.content;
+        last.sources = m.sources ?? [];
+        last.intent = m.intent;
+        last.usage = m.usage;
+      }
+    }
+    setTurns(restored);
+  }
+
+  function newConversation() {
+    abortRef.current?.abort();
+    setConversationId(null);
+    setTurns([]);
+    setInput("");
+  }
+
   return (
-    <div className="animate-in flex min-h-[calc(100vh-9rem)] flex-col">
+    <div className="animate-in flex min-h-[calc(100vh-9rem)] gap-8">
+      <aside className="hidden w-56 shrink-0 xl:block">
+        <div className="sticky top-[5.5rem]">
+          <ConversationHistory
+            courseId={courseId}
+            activeId={conversationId}
+            onSelect={(id) => void openConversation(id)}
+            onNew={newConversation}
+          />
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         title="Ask"
         subtitle="Ask by voice or text. Every answer cites the paper and page it came from."
@@ -361,7 +416,7 @@ export default function Ask() {
           </p>
         )}
       </div>
+      </div>
     </div>
   );
 }
-

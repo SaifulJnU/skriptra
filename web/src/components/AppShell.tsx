@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useMatch, useParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useMatch, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -8,12 +8,69 @@ import {
   FileText,
   LayoutGrid,
   ListTree,
+  LogOut,
   Moon,
   Sparkles,
   Sun,
 } from "lucide-react";
 import { api, usingMocks } from "@/lib/client";
+import { getUser, logout, onSessionChange } from "@/lib/session";
 import { cn } from "@/lib/utils";
+
+/**
+ * The signed-in user, with a way out.
+ *
+ * The initial is derived from the account rather than hardcoded, which it was
+ * while there was only ever one user.
+ */
+function UserMenu() {
+  const [user, setUser] = useState(getUser);
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => onSessionChange(setUser), []);
+
+  if (!user) return null;
+  const initial = (user.displayName || user.email || "?").trim().charAt(0).toUpperCase();
+
+  return (
+    <div className="relative ml-1">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        className="flex h-7 w-7 items-center justify-center rounded-full surface-sunken text-xs font-semibold"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={user.displayName}
+      >
+        {initial}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-lg border surface shadow-lg"
+        >
+          <div className="border-b px-3 py-2.5">
+            <p className="truncate text-sm font-medium">{user.displayName}</p>
+            {user.email && <p className="muted-text truncate text-xs">{user.email}</p>}
+          </div>
+          <button
+            role="menuitem"
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:surface-sunken"
+            onClick={async () => {
+              await logout();
+              navigate("/signin", { replace: true });
+            }}
+          >
+            <LogOut size={14} />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ThemeToggle() {
   const [dark, setDark] = useState(() =>
@@ -147,9 +204,7 @@ export default function AppShell() {
             )}
             <ProviderPill />
             <ThemeToggle />
-            <div className="ml-1 flex h-7 w-7 items-center justify-center rounded-full surface-sunken text-xs font-semibold">
-              S
-            </div>
+            <UserMenu />
           </div>
         </div>
       </header>

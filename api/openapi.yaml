@@ -36,14 +36,117 @@ tags:
   - name: questions
   - name: search
   - name: ask
+  - name: conversations
   - name: documents
   - name: analytics
   - name: system
+  - name: auth
 
 security:
   - bearerAuth: []
 
 paths:
+  # ------------------------------------------------------------------ auth --
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: Register an account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password:
+                  type: string
+                  minLength: 10
+                  description: |
+                    Length only. Composition rules push people towards
+                    Password1! and are no longer recommended by NIST or OWASP.
+                displayName: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: |
+            Registered and signed in. The access token is in the body; the
+            refresh token is set as an HttpOnly cookie and is never readable
+            by client script.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: "skriptra_refresh, HttpOnly, SameSite=Lax, Secure in production."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "409":
+          description: That email is already registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Sign in
+      description: |
+        A wrong password and an unregistered address return the same `401` with
+        the same message, and take the same time. Distinguishing them would
+        turn this endpoint into an oracle for which addresses have accounts.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Exchange the refresh cookie for a new access token
+      description: |
+        The refresh token is rotated on every use: the presented one is revoked
+        and a new one issued. A stolen copy therefore stops working as soon as
+        the legitimate client refreshes.
+
+        Requires the cookie, so callers must send credentials.
+      security: []
+      responses:
+        "200":
+          description: New access token, and a rotated refresh cookie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401":
+          description: No session, or it has expired or been revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current session
+      description: Always succeeds. A caller who asked to sign out ends up signed out.
+      security: []
+      responses:
+        "204": { description: Signed out }
+
   # ---------------------------------------------------------------- system --
   /healthz:
     get:
@@ -118,6 +221,10 @@ paths:
     post:
       tags: [courses]
       summary: Create a course
+      description: |
+        The caller becomes the course owner. Membership is what grants access:
+        a course you do not belong to answers `404` on every endpoint, not
+        `403`, since a `403` would confirm the identifier is real.
       requestBody:
         required: true
         content:
@@ -350,6 +457,59 @@ paths:
                   data:
                     type: array
                     items: { $ref: "#/components/schemas/ChapterFrequency" }
+
+  /courses/{courseId}/conversations:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    get:
+      tags: [conversations]
+      summary: List the current user's conversations in a course
+      description: |
+        Most recently active first. A conversation is titled from the first
+        question asked in it, which is what a student recognises it by.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Conversation" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+
+  /conversations/{conversationId}:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    get:
+      tags: [conversations]
+      summary: Get a conversation with every message in it
+      description: |
+        Messages are oldest first. Citations are stored on the message rather
+        than resolved at read time, so an answer reads exactly as it was given
+        even after the document it cited has been deleted or re-ingested.
+
+        A conversation belonging to another user returns `404`, not `403`: a
+        `403` would confirm the identifier is real.
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [conversations]
+      summary: Delete a conversation and its messages
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # ------------------------------------------------------------------ exams --
   /exams/{examId}:
@@ -590,6 +750,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     DocumentId:
       name: documentId
       in: path
@@ -679,6 +844,20 @@ components:
     IngestStatus:
       type: string
       enum: [queued, parsing, segmenting, classifying, embedding, indexed, failed]
+
+    Session:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: |
+            Short-lived JWT, sent as `Authorization: Bearer`. Held in memory by
+            the client, never in localStorage, where any script on the page
+            could read it.
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer, description: Seconds until the access token expires. }
+        user: { $ref: "#/components/schemas/User" }
 
     User:
       type: object
@@ -802,6 +981,50 @@ components:
       properties:
         question: { $ref: "#/components/schemas/Question" }
         score: { type: number, minimum: 0, maximum: 1 }
+
+    Conversation:
+      type: object
+      required: [id, courseId, title, messageCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        title:
+          type: string
+          description: Taken from the first question asked, truncated at a word break.
+          examples: ["Why is the OLS estimator unbiased?"]
+        messageCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt:
+          type: string
+          format: date-time
+          description: Bumped on every message, so the list orders by real recency.
+
+    Message:
+      type: object
+      required: [id, role, content, sources, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string, description: Markdown for assistant turns. }
+        intent:
+          type: string
+          enum: [enumerate, explain, similar, analyse, hybrid]
+          description: Assistant turns only; which path produced the answer.
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/Citation" }
+        usage: { $ref: "#/components/schemas/Usage" }
+        createdAt: { type: string, format: date-time }
+
+    ConversationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Conversation"
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items: { $ref: "#/components/schemas/Message" }
 
     RetrievalFilters:
       type: object
