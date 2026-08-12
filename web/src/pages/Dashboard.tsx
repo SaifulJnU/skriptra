@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, FileText, ListTree, Upload } from "lucide-react";
+import { ArrowUpRight, FileText, ListTree, Plus, Upload } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui";
+import CreateCourseDialog from "@/components/CreateCourseDialog";
 import UploadDialog from "@/components/UploadDialog";
 
 export default function Dashboard() {
   const [uploadCourse, setUploadCourse] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const courses = useQuery({ queryKey: ["courses"], queryFn: () => api.listCourses() });
   const docs = useQuery({
     queryKey: ["documents", courses.data?.data[0]?.id],
@@ -20,17 +22,23 @@ export default function Dashboard() {
       {uploadCourse && (
         <UploadDialog courseId={uploadCourse} onClose={() => setUploadCourse(null)} />
       )}
+      {creating && <CreateCourseDialog onClose={() => setCreating(false)} />}
       <PageHeader
         title="Your courses"
         subtitle="Upload past papers once, then search, compare and ask across every year."
         actions={
-          <Button
-            onClick={() => setUploadCourse(courses.data?.data[0]?.id ?? null)}
-            disabled={!courses.data?.data.length}
-            title={courses.data?.data.length ? undefined : "Create a course first"}
-          >
-            <Upload size={15} /> Upload paper
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setCreating(true)}>
+              <Plus size={15} /> New course
+            </Button>
+            <Button
+              onClick={() => setUploadCourse(courses.data?.data[0]?.id ?? null)}
+              disabled={!courses.data?.data.length}
+              title={courses.data?.data.length ? undefined : "Create a course first"}
+            >
+              <Upload size={15} /> Upload paper
+            </Button>
+          </div>
         }
       />
 
@@ -48,7 +56,7 @@ export default function Dashboard() {
         <EmptyState
           title="No courses yet"
           description="Create a course and upload its past exam papers. Skriptra will split them into questions and index them by chapter."
-          action={<Button>Create a course</Button>}
+          action={<Button onClick={() => setCreating(true)}>Create a course</Button>}
         />
       )}
 

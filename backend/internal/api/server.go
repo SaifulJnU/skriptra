@@ -153,12 +153,23 @@ func (s *Server) cors() gin.HandlerFunc {
 		// Development only: the Vite dev server runs on a different origin. In
 		// production the frontend is served same-origin, so no allowance is
 		// granted and this middleware is a no-op.
-		if s.cfg.Env == "development" {
-			c.Header("Access-Control-Allow-Origin", "*")
-			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			// The refresh cookie only travels if the browser is told to send
-			// credentials cross-origin, which the dev server is.
+		//
+		// The origin is echoed rather than answered with "*". A wildcard is
+		// invalid the moment credentials are allowed, and browsers reject the
+		// whole response rather than downgrading it: every credentialed
+		// request fails in the client as a network error with no status to
+		// report, which surfaces as an unexplained "something went wrong" on
+		// the sign-in form. The refresh cookie needs credentials, so the
+		// wildcard has to go.
+		//
+		// Vary: Origin because the response now differs per origin, and a
+		// cache that missed that would serve one origin's allowance to
+		// another.
+		if origin := c.GetHeader("Origin"); origin != "" && s.cfg.Env == "development" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		}
 		if c.Request.Method == http.MethodOptions {

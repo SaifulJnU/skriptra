@@ -114,12 +114,24 @@ export async function logout(): Promise<void> {
 }
 
 async function authRequest(path: string, body: unknown): Promise<Session> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // fetch rejects rather than resolving when the request never completed:
+    // the API is down, or the browser refused the response. A CORS refusal
+    // arrives here with no status and no body, so reporting it as a failed
+    // sign-in would blame the password for a server problem.
+    throw new AuthError(
+      "network",
+      "Could not reach the server. Is the API running?",
+    );
+  }
 
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
