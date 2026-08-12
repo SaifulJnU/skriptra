@@ -19,6 +19,7 @@ import (
 	"github.com/skriptra/skriptra/backend/internal/cache"
 	"github.com/skriptra/skriptra/backend/internal/config"
 	"github.com/skriptra/skriptra/backend/internal/db"
+	"github.com/skriptra/skriptra/backend/internal/ingest"
 	"github.com/skriptra/skriptra/backend/internal/provider"
 )
 
@@ -36,7 +37,10 @@ type Server struct {
 	queue    Publisher
 	cache    cache.Cache
 	issuer   *auth.Issuer
-	log      *slog.Logger
+	// parsers reads an uploaded syllabus synchronously, the one ingestion job
+	// a user waits on rather than polls. Papers still go through the queue.
+	parsers *ingest.Chain
+	log     *slog.Logger
 
 	// Cached OCR reachability, see ocrAvailable.
 	ocrHealthy   bool
@@ -48,7 +52,8 @@ func New(cfg *config.Config, store *db.Store, llm provider.LLM, embedder provide
 		c = cache.NoOp{}
 	}
 	return &Server{cfg: cfg, store: store, llm: llm, embedder: embedder,
-		queue: q, cache: c, issuer: issuer, log: log}
+		queue: q, cache: c, issuer: issuer,
+		parsers: ingest.NewParserChain(cfg.OCRURL, log), log: log}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -92,6 +97,8 @@ func (s *Server) Routes() http.Handler {
 		{
 			course.GET("", s.getCourse)
 			course.GET("/chapters", s.listChapters)
+			course.POST("/chapters", s.saveChapters)
+			course.POST("/chapters/extract", s.extractOutline)
 			course.GET("/exams", s.listExams)
 			course.GET("/questions", s.listQuestions)
 			course.GET("/documents", s.listDocuments)

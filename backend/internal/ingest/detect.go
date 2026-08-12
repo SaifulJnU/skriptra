@@ -23,13 +23,13 @@ var signatures = []struct {
 	format Format
 }{
 	{[]byte("%PDF"), FormatPDF},
-	{[]byte("\xFF\xD8\xFF"), FormatImage},                     // jpeg
-	{[]byte("\x89PNG\r\n\x1a\n"), FormatImage},                // png
+	{[]byte("\xFF\xD8\xFF"), FormatImage},      // jpeg
+	{[]byte("\x89PNG\r\n\x1a\n"), FormatImage}, // png
 	{[]byte("GIF87a"), FormatImage},
 	{[]byte("GIF89a"), FormatImage},
-	{[]byte("BM"), FormatImage},                               // bmp
-	{[]byte("II*\x00"), FormatImage},                          // tiff, little endian
-	{[]byte("MM\x00*"), FormatImage},                          // tiff, big endian
+	{[]byte("BM"), FormatImage},      // bmp
+	{[]byte("II*\x00"), FormatImage}, // tiff, little endian
+	{[]byte("MM\x00*"), FormatImage}, // tiff, big endian
 }
 
 // DetectFormat identifies a file from its contents.

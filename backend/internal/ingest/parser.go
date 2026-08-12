@@ -42,9 +42,9 @@ type Page struct {
 // need in phase 2, and it is defined now so adding that does not change this
 // type.
 type Block struct {
-	Page                   int
-	Text                   string
-	X0, Y0, X1, Y1         float64
+	Page           int
+	Text           string
+	X0, Y0, X1, Y1 float64
 }
 
 // ParsedDocument is the parser output contract.
@@ -97,11 +97,11 @@ type Capabilities struct {
 // requires reading the first page or two.
 type Probe struct {
 	// Format is decided from the file's contents, never its extension.
-	Format         Format
-	HasTextLayer   bool
-	LikelyScanned  bool
-	ContainsMath   bool
-	PageCount      int
+	Format        Format
+	HasTextLayer  bool
+	LikelyScanned bool
+	ContainsMath  bool
+	PageCount     int
 }
 
 // DocumentParser extracts text and page structure from a document.
@@ -241,4 +241,33 @@ func weight(c Capabilities) int {
 		}
 	}
 	return n
+}
+
+// PageLimiter is implemented by parsers that can stop after the first N pages.
+//
+// Optional rather than part of DocumentParser: a photograph has one page and a
+// Word file has no page concept until it is rendered, so forcing every
+// implementation to carry the parameter would add a field most of them ignore.
+type PageLimiter interface {
+	ParsePages(ctx context.Context, r io.Reader, filename string, maxPages int) (*ParsedDocument, error)
+}
+
+// ParseFirstPages reads only the front of a document.
+//
+// For the one job that needs it: finding a chapter list, which lives on a
+// contents page near the front. Parsers that cannot stop early fall back to a
+// full parse, so the caller always gets a result.
+func (c *Chain) ParseFirstPages(ctx context.Context, r io.Reader, filename string, p Probe, maxPages int) (*ParsedDocument, error) {
+	parser, err := c.Select(p)
+	if err != nil {
+		return nil, err
+	}
+	if limited, ok := parser.(PageLimiter); ok {
+		doc, err := limited.ParsePages(ctx, r, filename, maxPages)
+		if err != nil {
+			return nil, fmt.Errorf("document could not be read: %w", err)
+		}
+		return doc, nil
+	}
+	return c.Parse(ctx, r, filename, p)
 }

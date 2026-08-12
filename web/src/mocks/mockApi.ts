@@ -307,6 +307,37 @@ export const mockApi: SkriptraApi = {
     return paged(documents, 1, 50);
   },
 
+  // A fixed proposal, so the review step can be designed against a realistic
+  // one: rules find most chapters and miss some, which is the case the editing
+  // UI exists for.
+  async extractOutline(_courseId, file) {
+    await delay(900);
+    return {
+      chapters: [
+        { number: 1, title: "The Linear Model", topics: ["design matrix", "assumptions"] },
+        { number: 2, title: "Least Squares Estimation", topics: ["OLS", "Gauss-Markov", "BLUE"] },
+        { number: 3, title: "Inference and Hypothesis Testing", topics: ["F-test", "t-test"] },
+        { number: 5, title: "Generalized Linear Models", topics: ["logit", "probit"] },
+      ],
+      source: "rules" as const,
+      filename: file.name,
+    };
+  },
+
+  async saveChapters(_courseId, chapters) {
+    await delay(700);
+    return {
+      data: chapters.map((ch) => ({
+        id: crypto.randomUUID(),
+        number: ch.number,
+        title: ch.title,
+        topics: ch.topics,
+        questionCount: 0,
+      })),
+      questionsClassified: Math.max(0, questions.length - 2),
+    };
+  },
+
   async createCourse(input) {
     await delay(200);
     const course: Course = {

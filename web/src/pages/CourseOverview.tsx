@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, FileText, ListTree, Sparkles, Upload } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, ErrorState, PageHeader, Skeleton } from "@/components/ui";
+import CourseSetup from "@/components/CourseSetup";
 import UploadDialog from "@/components/UploadDialog";
 import { formatPercent } from "@/lib/utils";
 
@@ -19,6 +20,9 @@ export default function CourseOverview() {
     queryKey: ["chapters", courseId],
     queryFn: () => api.listChapters(courseId),
   });
+  // How many questions the taxonomy managed to place, shown once after saving.
+  const [classified, setClassified] = useState<number | null>(null);
+
   const freq = useQuery({
     queryKey: ["chapter-frequency", courseId],
     queryFn: () => api.chapterFrequency(courseId),
@@ -121,6 +125,33 @@ export default function CourseOverview() {
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-16" />
             ))}
+          </div>
+        )}
+
+        {/*
+          A course with no taxonomy cannot classify anything, so this is not an
+          empty list to shrug at: it is the reason every question on the next
+          screen says "Unclassified". Saying so, and offering the fix in place,
+          beats an empty state that looks like nothing has been uploaded yet.
+        */}
+        {chapters.data?.length === 0 && !chapters.isLoading && (
+          <div className="space-y-3">
+            {(course.data?.questionCount ?? 0) > 0 && (
+              <p className="rounded-[var(--radius-card)] border border-dashed px-4 py-3 text-sm text-secondary">
+                <strong className="font-semibold">
+                  {course.data?.questionCount} questions are indexed but unclassified.
+                </strong>{" "}
+                Questions are sorted by matching them against the chapter list,
+                and this course has none yet. Add one below and everything
+                already uploaded is sorted straight away.
+              </p>
+            )}
+            {classified !== null && (
+              <p className="rounded-[var(--radius-card)] border px-4 py-3 text-sm accent-text">
+                Saved. {classified} question{classified === 1 ? "" : "s"} sorted into chapters.
+              </p>
+            )}
+            <CourseSetup courseId={courseId} onDone={setClassified} />
           </div>
         )}
 

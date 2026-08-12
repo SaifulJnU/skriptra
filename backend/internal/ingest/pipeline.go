@@ -69,7 +69,13 @@ type Pipeline struct {
 	log      *slog.Logger
 }
 
-func NewPipeline(store Store, embedder provider.Embedder, llm provider.LLM, ocrURL string, log *slog.Logger) *Pipeline {
+// NewParserChain builds the parser set from configuration.
+//
+// Extracted from NewPipeline because the API needs the same set for one
+// synchronous job: reading a chapter list out of an uploaded syllabus. That
+// cannot go through the queue, since the user is waiting on the result in a
+// dialog, and it must not be a second, subtly different chain.
+func NewParserChain(ocrURL string, log *slog.Logger) *Chain {
 	chain := &Chain{}
 	chain.Register(PDFParser{})
 	chain.Register(DOCXParser{})
@@ -85,6 +91,11 @@ func NewPipeline(store Store, embedder provider.Embedder, llm provider.LLM, ocrU
 		log.Info("document service registered", "url", ocrURL,
 			"parsers", "pdftotext, tesseract-ocr")
 	}
+	return chain
+}
+
+func NewPipeline(store Store, embedder provider.Embedder, llm provider.LLM, ocrURL string, log *slog.Logger) *Pipeline {
+	chain := NewParserChain(ocrURL, log)
 	return &Pipeline{parsers: chain, store: store, embedder: embedder, llm: llm, log: log}
 }
 

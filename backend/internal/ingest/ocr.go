@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -51,7 +52,7 @@ func newSidecarParser(baseURL, endpoint string) *OCRParser {
 	}
 	return &OCRParser{
 		endpoint: endpoint,
-		baseURL: baseURL,
+		baseURL:  baseURL,
 		http: &http.Client{
 			Transport: &http.Transport{
 				DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
@@ -106,6 +107,18 @@ type ocrResponse struct {
 }
 
 func (o *OCRParser) Parse(ctx context.Context, r io.Reader, filename string) (*ParsedDocument, error) {
+	return o.ParsePages(ctx, r, filename, 0)
+}
+
+// ParsePages reads at most maxPages from the front of the document; zero means
+// all of it.
+//
+// The limit is sent to the service rather than applied to the result, because
+// the cost is incurred there. Rendering a four-hundred-page book at 300 DPI to
+// find a contents page in the first twelve is enough memory to have the
+// container OOM-killed, which is exactly what happened the first time an
+// outline was extracted from a real textbook.
+func (o *OCRParser) ParsePages(ctx context.Context, r io.Reader, filename string, maxPages int) (*ParsedDocument, error) {
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 
@@ -115,6 +128,11 @@ func (o *OCRParser) Parse(ctx context.Context, r io.Reader, filename string) (*P
 	}
 	if _, err := io.Copy(part, r); err != nil {
 		return nil, err
+	}
+	if maxPages > 0 {
+		if err := mw.WriteField("max_pages", strconv.Itoa(maxPages)); err != nil {
+			return nil, err
+		}
 	}
 	if err := mw.Close(); err != nil {
 		return nil, err

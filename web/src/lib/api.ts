@@ -46,6 +46,25 @@ export interface AskRequest {
   filters?: RetrievalFilters;
 }
 
+export interface ProposedChapter {
+  number: number;
+  title: string;
+  topics: string[];
+}
+
+export interface OutlineProposal {
+  chapters: ProposedChapter[];
+  /** "rules" when a contents page was matched, "llm" when it was read as prose. */
+  source: "rules" | "llm";
+  filename: string;
+}
+
+export interface SaveChaptersResult {
+  data: Chapter[];
+  /** How many already-indexed questions the new taxonomy managed to place. */
+  questionsClassified: number;
+}
+
 export interface UploadMeta {
   kind: DocumentKind;
   year?: number;
@@ -85,6 +104,18 @@ export interface SkriptraApi {
     institution?: string;
     language?: "en" | "de";
   }): Promise<Course>;
+
+  /**
+   * Proposes a chapter taxonomy from an uploaded syllabus or contents page.
+   * Saves nothing: the proposal is reviewed before it is committed.
+   */
+  extractOutline(courseId: string, file: File): Promise<OutlineProposal>;
+
+  /**
+   * Commits a taxonomy and reports how many already-indexed questions it
+   * managed to classify.
+   */
+  saveChapters(courseId: string, chapters: ProposedChapter[]): Promise<SaveChaptersResult>;
 
   listConversations(courseId: string): Promise<Paged<Conversation>>;
   getConversation(conversationId: string): Promise<ConversationDetail>;
@@ -221,6 +252,34 @@ export const httpApi: SkriptraApi = {
 
   createCourse: (input) =>
     request("/courses", { method: "POST", body: JSON.stringify(input) }),
+
+  async extractOutline(courseId, file) {
+    const form = new FormData();
+    form.append("file", file);
+    const token = getAccessToken();
+    const res = await fetch(`${BASE}/courses/${courseId}/chapters/extract`, {
+      method: "POST",
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = body as { error?: { code?: string; message?: string } };
+      throw new ApiRequestError(
+        res.status,
+        err.error?.code ?? "extract_failed",
+        err.error?.message ?? "Could not read a chapter list from that file.",
+      );
+    }
+    return body as OutlineProposal;
+  },
+
+  saveChapters: (id, chapters) =>
+    request(`/courses/${id}/chapters`, {
+      method: "POST",
+      body: JSON.stringify({ chapters }),
+    }),
 
   listConversations: (id) => request(`/courses/${id}/conversations`),
   getConversation: (id) => request(`/conversations/${id}`),

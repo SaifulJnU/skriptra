@@ -18,7 +18,7 @@ func (f fakeParser) Parse(_ context.Context, _ io.Reader, _ string) (*ParsedDocu
 }
 
 var (
-	goNative = fakeParser{Capabilities{Name: "go-fitz", TextLayer: true, Local: true}}
+	goNative  = fakeParser{Capabilities{Name: "go-fitz", TextLayer: true, Local: true}}
 	pySidecar = fakeParser{Capabilities{
 		Name: "python-ocr", TextLayer: true, OCR: true, Layout: true, Formulas: true, Local: false,
 	}}

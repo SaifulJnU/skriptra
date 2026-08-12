@@ -75,7 +75,7 @@ def _ocr_page(image: Image.Image, langs: str) -> str:
 
 
 @app.post("/extract")
-async def extract(file: UploadFile = File(...)):
+async def extract(file: UploadFile = File(...), max_pages: int = Form(0)):
     """Extract an existing text layer from a PDF, with pdftotext.
 
     Separate from /ocr and much cheaper: this reads text the file already
@@ -115,8 +115,14 @@ async def extract(file: UploadFile = File(...)):
         if pages_total == 0:
             raise HTTPException(status_code=422, detail="could not read page count")
 
+        # A caller that only needs the front of the document says so. Reading
+        # a four-hundred-page book to find a contents page in the first twelve
+        # is waste, and on the OCR path it is enough rendering to exhaust the
+        # container's memory and kill the service.
+        last = pages_total if max_pages <= 0 else min(max_pages, pages_total)
+
         pages = []
-        for n in range(1, pages_total + 1):
+        for n in range(1, last + 1):
             proc = subprocess.run(
                 ["pdftotext", "-layout", "-f", str(n), "-l", str(n), path, "-"],
                 capture_output=True, text=True, timeout=120,
@@ -139,7 +145,7 @@ async def extract(file: UploadFile = File(...)):
 
 
 @app.post("/ocr")
-async def ocr(file: UploadFile = File(...), langs: str = Form(DEFAULT_LANGS)):
+async def ocr(file: UploadFile = File(...), langs: str = Form(DEFAULT_LANGS), max_pages: int = Form(0)):
     """Extract text from a photograph or a scanned PDF.
 
     Returns one entry per page so the Go side keeps page numbers, which every
@@ -156,7 +162,14 @@ async def ocr(file: UploadFile = File(...), langs: str = Form(DEFAULT_LANGS)):
         if is_pdf:
             # 300 DPI is the point where Tesseract's accuracy stops improving
             # for printed text; higher just costs memory.
-            images = convert_from_bytes(content, dpi=300)
+            # last_page bounds the render, not a slice afterwards: pdf2image
+            # rasterises everything it is given, and a whole book at 300 DPI is
+            # enough memory to have the container OOM-killed mid-request. The
+            # caller asking only for a contents page must not pay for the book.
+            images = convert_from_bytes(
+                content, dpi=300,
+                last_page=(max_pages if max_pages > 0 else None),
+            )
             if len(images) > MAX_PAGES:
                 raise HTTPException(
                     status_code=422,

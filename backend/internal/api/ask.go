@@ -214,10 +214,10 @@ func (s *Server) answerAnalyse(c *gin.Context, w *writer, t turn, req askRequest
 	w.event("sources", gin.H{"sources": []domain.Citation{}})
 	w.stream(text)
 	s.finish(c, w, t, domain.Answer{
-		Intent:         domain.IntentAnalyse,
-		Answer:         text,
-		Sources:        []domain.Citation{},
-		Usage:          &domain.Usage{LatencyMs: time.Since(started).Milliseconds()},
+		Intent:  domain.IntentAnalyse,
+		Answer:  text,
+		Sources: []domain.Citation{},
+		Usage:   &domain.Usage{LatencyMs: time.Since(started).Milliseconds()},
 	})
 }
 
@@ -308,11 +308,11 @@ func (s *Server) answerEnumerate(c *gin.Context, w *writer, t turn, req askReque
 	w.event("sources", gin.H{"sources": sources, "questions": questions})
 	w.stream(text)
 	s.finish(c, w, t, domain.Answer{
-		Intent:         domain.IntentEnumerate,
-		Answer:         text,
-		Sources:        sources,
-		Questions:      questions,
-		Usage:          &domain.Usage{LatencyMs: time.Since(started).Milliseconds()},
+		Intent:    domain.IntentEnumerate,
+		Answer:    text,
+		Sources:   sources,
+		Questions: questions,
+		Usage:     &domain.Usage{LatencyMs: time.Since(started).Milliseconds()},
 	})
 }
 
@@ -338,10 +338,10 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, t turn, req askRequest
 		w.event("sources", gin.H{"sources": []domain.Citation{}})
 		w.stream(text)
 		s.finish(c, w, t, domain.Answer{
-			Intent:         d.Intent,
-			Answer:         text,
-			Sources:        []domain.Citation{},
-			Usage:          &domain.Usage{LatencyMs: time.Since(started).Milliseconds()},
+			Intent:  d.Intent,
+			Answer:  text,
+			Sources: []domain.Citation{},
+			Usage:   &domain.Usage{LatencyMs: time.Since(started).Milliseconds()},
 		})
 		return
 	}
@@ -426,10 +426,10 @@ func (s *Server) answerExplain(c *gin.Context, w *writer, t turn, req askRequest
 	}
 
 	s.finish(c, w, t, domain.Answer{
-		Intent:         d.Intent,
-		Answer:         answer,
-		Sources:        sources,
-		Usage:          &usage,
+		Intent:  d.Intent,
+		Answer:  answer,
+		Sources: sources,
+		Usage:   &usage,
 	})
 }
 
@@ -528,9 +528,9 @@ func plural(n int) string {
 // writer renders either SSE frames or a single JSON body, so each answer path
 // is written once instead of twice.
 type writer struct {
-	c        *gin.Context
+	c         *gin.Context
 	streaming bool
-	flusher  http.Flusher
+	flusher   http.Flusher
 }
 
 func newWriter(c *gin.Context, streaming bool) *writer {

@@ -46,6 +46,11 @@ func (PDFParser) Capabilities() Capabilities {
 }
 
 func (p PDFParser) Parse(ctx context.Context, r io.Reader, filename string) (*ParsedDocument, error) {
+	return p.ParsePages(ctx, r, filename, 0)
+}
+
+// ParsePages reads at most maxPages from the front; zero means all of them.
+func (p PDFParser) ParsePages(ctx context.Context, r io.Reader, filename string, maxPages int) (*ParsedDocument, error) {
 	buf, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", filename, err)
@@ -63,7 +68,11 @@ func (p PDFParser) Parse(ctx context.Context, r io.Reader, filename string) (*Pa
 		ParsedBy:  "pdf-go",
 	}
 
-	for i := 1; i <= total; i++ {
+	last := total
+	if maxPages > 0 && maxPages < last {
+		last = maxPages
+	}
+	for i := 1; i <= last; i++ {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()

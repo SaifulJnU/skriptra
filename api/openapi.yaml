@@ -281,6 +281,106 @@ paths:
                   data:
                     type: array
                     items: { $ref: "#/components/schemas/Chapter" }
+    post:
+      tags: [chapters]
+      summary: Save a confirmed taxonomy and sort existing questions into it
+      description: |
+        Replaces the taxonomy, then classifies every question in the course
+        that has no chapter yet.
+
+        The back-fill is the point: students upload the papers they have and
+        find the syllabus afterwards, so without it a taxonomy would only ever
+        apply to future uploads and everything already indexed would stay
+        unclassified.
+
+        A chapter removed from the taxonomy has its questions unclassified
+        rather than left pointing at material the course no longer claims to
+        cover. Chapters that survive keep their identifier, so an edit to a
+        title does not discard existing assignments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chapters]
+              properties:
+                chapters:
+                  type: array
+                  minItems: 1
+                  maxItems: 40
+                  items: { $ref: "#/components/schemas/ProposedChapter" }
+      responses:
+        "200":
+          description: The saved taxonomy, and how many questions it placed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, questionsClassified]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Chapter" }
+                  questionsClassified:
+                    type: integer
+                    description: |
+                      How many previously unclassified questions the taxonomy
+                      matched. The one number that tells the owner whether their
+                      topic lists are any good.
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+
+  /courses/{courseId}/chapters/extract:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
+    post:
+      tags: [chapters]
+      summary: Propose a chapter taxonomy from a syllabus or contents page
+      description: |
+        Reads a chapter list out of an uploaded document and returns it without
+        saving. Only the first pages are read, since a contents page is at the
+        front by definition and rendering a whole textbook to find it is enough
+        memory to kill the document service.
+
+        Rules are tried first, which handles a conventional contents page
+        exactly and for nothing. The model is the fallback for a syllabus
+        written as prose.
+
+        The result is a proposal because a contents page is messy: rules find
+        most chapters and miss some, and only the course owner knows whether a
+        line is a chapter or a heading inside one.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: A proposed taxonomy, not yet saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [chapters, source]
+                properties:
+                  chapters:
+                    type: array
+                    items: { $ref: "#/components/schemas/ProposedChapter" }
+                  source:
+                    type: string
+                    enum: [rules, llm]
+                    description: How the list was read, so a bad taxonomy can be traced to the method.
+                  filename: { type: string }
+        "415": { $ref: "#/components/responses/UnsupportedMedia" }
+        "422":
+          description: No chapter list could be read from that file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /courses/{courseId}/exams:
     parameters:
@@ -914,6 +1014,23 @@ components:
           items: { type: string }
           description: Keywords used to seed question classification.
         questionCount: { type: integer }
+
+    ProposedChapter:
+      type: object
+      description: A chapter that does not exist yet, or is being edited.
+      required: [number, title]
+      properties:
+        number: { type: integer, minimum: 1, maximum: 99 }
+        title: { type: string, examples: ["Least Squares Estimation"] }
+        topics:
+          type: array
+          items: { type: string }
+          description: |
+            The vocabulary questions are matched against. This is where
+            classification quality comes from: a title alone is thin evidence,
+            since "Model Diagnostics" shares no words with a question about
+            Cook's distance.
+          examples: [["OLS", "Gauss-Markov", "BLUE"]]
 
     Exam:
       type: object
