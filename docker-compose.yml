@@ -1,0 +1,172 @@
+# Skriptra, local stack.
+#
+# The service boundaries here are the same ones that run in production. Only the
+# infrastructure differs: managed Postgres instead of a container, a load
+# balancer in front of the API, replicas of the workers. No service exists here
+# that would not exist there, and none is wired differently.
+#
+#   docker compose up                        # local stack, bring your own model
+#   docker compose --profile local-llm up    # + Ollama, fully offline, no API keys
+#   docker compose --profile tools up        # + pgAdmin
+
+name: skriptra
+
+services:
+  postgres:
+    mem_limit: 512m
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: skriptra
+      POSTGRES_PASSWORD: skriptra
+      POSTGRES_DB: skriptra
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skriptra -d skriptra"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://skriptra:skriptra@postgres:5432/skriptra?sslmode=disable"
+      - "up"
+    restart: on-failure
+
+  nats:
+    mem_limit: 256m
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]   # JetStream: ingestion jobs must survive a restart
+    ports: ["4222:4222", "8222:8222"]
+    volumes:
+      - natsdata:/data
+
+  redis:
+    mem_limit: 256m
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    # 2g, not 512m. The dev target runs `go run`, which compiles the whole
+    # program inside the container, and the Go compiler needs far more memory
+    # than the resulting binary does. A tighter limit gets the compiler
+    # OOM-killed with "signal: killed" and no server ever starts. The prod
+    # target ships a prebuilt binary and would be happy with 256m.
+    mem_limit: 2g
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    env_file: [.env.local]
+    environment:
+      HTTP_ADDR: ":8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+      migrate:  { condition: service_completed_successfully }
+    ports: ["8080:8080"]
+    volumes:
+      - ./backend:/app
+      - uploads:/data/uploads
+
+  worker:
+    # 2g for the same reason as the API: `go run` compiles in-container.
+    # Ingestion itself is bounded by design now, and the ceiling means a
+    # regression degrades one container instead of the machine.
+    mem_limit: 2g
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    command: ["go", "run", "./cmd/worker"]
+    env_file: [.env.local]
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate:  { condition: service_completed_successfully }
+    volumes:
+      - ./backend:/app
+      - uploads:/data/uploads
+
+  # The one service that is not Go, and the reason is specific: Tesseract has no
+  # Go equivalent worth using. Everything else stays in the worker.
+  #
+  # Behind a profile because it pulls Tesseract and poppler, which makes for a
+  # slow first build and is pointless if the corpus is digital PDFs:
+  #
+  #   docker compose --profile ocr up
+  ocr:
+    # Rendering a PDF page at 300 DPI is the memory peak here.
+    mem_limit: 2g
+    build:
+      context: ./services/ocr
+    profiles: [ocr]
+    environment:
+      OCR_LANGS: eng+deu
+    ports: ["50052:50052"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:50052/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    mem_limit: 1g
+    image: node:22-alpine
+    working_dir: /app
+    command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080/api/v1
+      # The whole stack is running, so the interface must talk to it. Without
+      # this the client falls back to its mock adapter and the app shows
+      # fixtures while a real API sits unused beside it, which is a convincing
+      # and completely fake demo.
+      VITE_USE_MOCKS: "false"
+      # Windows bind mounts do not deliver inotify events; without polling the
+      # dev server never sees a file change.
+      CHOKIDAR_USEPOLLING: "true"
+    ports: ["5173:5173"]
+    volumes:
+      - ./web:/app
+      - webmodules:/app/node_modules
+
+  ollama:
+    # A 3B model plus its KV cache. Lower this and generation fails
+    # rather than swapping the host to a standstill.
+    mem_limit: 6g
+    image: ollama/ollama:latest
+    profiles: [local-llm]
+    ports: ["11434:11434"]
+    volumes:
+      - ollamadata:/root/.ollama
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    profiles: [tools]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@skriptra.local
+      PGADMIN_DEFAULT_PASSWORD: skriptra
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports: ["5050:80"]
+
+volumes:
+  pgdata:
+  natsdata:
+  redisdata:
+  uploads:
+  webmodules:
+  ollamadata:

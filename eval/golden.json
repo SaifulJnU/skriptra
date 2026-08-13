@@ -1,0 +1,108 @@
+{
+  "_comment": [
+    "Golden dataset for the Skriptra retrieval evaluation.",
+    "",
+    "Written by hand against the seeded Linear Models corpus (dev/seed.sql).",
+    "Cases are chosen to cover the router's decision boundaries and the ways",
+    "retrieval fails quietly, not to make the numbers look good.",
+    "",
+    "Run:  go run ./cmd/eval",
+    "Gate: cmd/eval exits non-zero when any metric falls below eval/baseline.json"
+  ],
+  "courseId": "22222222-2222-2222-2222-222222222222",
+  "cases": [
+    {
+      "id": "enum-chapter-explicit",
+      "question": "Give me all Chapter 3 questions",
+      "expectedIntent": "enumerate",
+      "expectedChapter": 3
+    },
+    {
+      "id": "enum-chapter-word",
+      "question": "List every question from chapter two",
+      "expectedIntent": "enumerate",
+      "expectedChapter": 2
+    },
+    {
+      "id": "enum-chapter-german",
+      "question": "Zeig mir alle Fragen aus Kapitel 3",
+      "expectedIntent": "enumerate",
+      "expectedChapter": 3
+    },
+    {
+      "id": "enum-chapter-by-title",
+      "question": "Show me all questions on Model Diagnostics",
+      "expectedIntent": "enumerate",
+      "expectedChapter": 4
+    },
+    {
+      "id": "enum-with-year-range",
+      "question": "Give me all Chapter 3 questions from the last five years",
+      "expectedIntent": "enumerate",
+      "expectedChapter": 3
+    },
+    {
+      "id": "analyse-most-tested",
+      "question": "Which chapters are tested most often?",
+      "expectedIntent": "analyse"
+    },
+    {
+      "id": "analyse-frequency-phrasing",
+      "question": "How many times has hypothesis testing come up?",
+      "expectedIntent": "analyse"
+    },
+    {
+      "id": "similar-appeared-before",
+      "question": "Has a question about the Gauss-Markov theorem appeared before?",
+      "expectedIntent": "similar"
+    },
+    {
+      "id": "explain-ols",
+      "question": "Why is the ordinary least squares estimator unbiased?",
+      "expectedIntent": "explain",
+      "relevantQuestionNumbers": ["1", "2"]
+    },
+    {
+      "id": "explain-ftest",
+      "question": "Explain how the F-test for joint significance is constructed",
+      "expectedIntent": "explain",
+      "relevantQuestionNumbers": ["3"]
+    },
+    {
+      "id": "explain-leverage",
+      "question": "What is the difference between leverage and influence?",
+      "expectedIntent": "explain",
+      "relevantQuestionNumbers": ["7"]
+    },
+    {
+      "id": "explain-link-function",
+      "question": "Derive the canonical link for the Poisson distribution",
+      "expectedIntent": "explain",
+      "relevantQuestionNumbers": ["8"]
+    },
+    {
+      "id": "explain-german",
+      "question": "Warum ist der Kleinste-Quadrate-Schaetzer erwartungstreu?",
+      "expectedIntent": "explain",
+      "relevantQuestionNumbers": ["1"]
+    },
+    {
+      "id": "refuse-out-of-corpus",
+      "question": "How do I cook biryani?",
+      "expectedIntent": "explain",
+      "shouldRefuse": true
+    },
+    {
+      "id": "refuse-adjacent-but-absent",
+      "question": "Explain the Black-Scholes option pricing formula",
+      "expectedIntent": "explain",
+      "shouldRefuse": true
+    },
+    {
+      "id": "no-chapter-referenced",
+      "question": "Explain what a residual sum of squares measures",
+      "expectedIntent": "explain",
+      "relevantQuestionNumbers": ["4"]
+    }
+  ]
+}

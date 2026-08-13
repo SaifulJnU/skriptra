@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Go build, vet, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: backend/go.sum
+
+      # A byte-order mark is invisible in every editor and diff, and Go rejects
+      # one anywhere but the very start of a file. This has already broken the
+      # build once, from a PowerShell script writing with -Encoding utf8, which
+      # adds a BOM. Cheaper to catch here than to debug from a compiler error
+      # pointing at line 1 column 1 of a file that looks fine.
+      - name: No byte-order marks in source
+        run: |
+          found=$(git ls-files -z '*.go' '*.ts' '*.tsx' '*.sql' '*.py' '*.yml' '*.json' \
+            | xargs -0 -I{} sh -c 'head -c3 "{}" | grep -q $'"'"'\xef\xbb\xbf'"'"' && echo "{}"' || true)
+          if [ -n "$found" ]; then
+            echo "Files begin with a UTF-8 BOM:"; echo "$found"
+            echo "Strip it: perl -i -pe 's/^\\x{feff}//' <file>"
+            exit 1
+          fi
+          echo "no BOMs"
+
+      - name: Build
+        working-directory: backend
+        run: go build ./...
+
+      - name: Vet
+        working-directory: backend
+        run: go vet ./...
+
+      - name: Test
+        working-directory: backend
+        run: go test -race -cover ./...
+
+  migrations:
+    name: Migrations apply and roll back
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: skriptra
+          POSTGRES_PASSWORD: skriptra
+          POSTGRES_DB: skriptra
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U skriptra"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # A migration that cannot be rolled back is a migration you cannot deploy
+      # with confidence, so the down path is tested rather than assumed.
+      #
+      # Every migration is applied, not just the first. The step used to name
+      # 000001 directly, which meant each new migration was added to the repo
+      # without its down path ever being run.
+      - name: Apply, roll back, re-apply
+        env:
+          PGPASSWORD: skriptra
+        run: |
+          apply() { for f in $(ls migrations/*.up.sql | sort); do
+            echo "up   $f"; psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -q -f "$f"; done; }
+          rollback() { for f in $(ls migrations/*.down.sql | sort -r); do
+            echo "down $f"; psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -q -f "$f"; done; }
+          apply
+          rollback
+          apply
+
+      - name: Seed loads cleanly
+        env:
+          PGPASSWORD: skriptra
+        run: psql -h localhost -U skriptra -d skriptra -v ON_ERROR_STOP=1 -f dev/seed.sql
+
+  web:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+  # The retrieval quality gate.
+  #
+  # Not enabled yet: it needs a running API with a model behind it, which means
+  # either a hosted key in CI secrets or a self-hosted runner with Ollama. Until
+  # then `go run ./cmd/eval` is run locally before merging. The job is written
+  # out here so switching it on is a matter of providing the environment, not
+  # designing the gate under time pressure later.
+  #
+  # eval:
+  #   name: Retrieval quality gate
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: docker compose up -d postgres nats
+  #     - run: go run ./cmd/api &
+  #       working-directory: backend
+  #     - run: go run ./cmd/eval        # exits non-zero on regression
+  #       working-directory: backend

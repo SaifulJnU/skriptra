@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+/**
+ * Design tokens.
+ *
+ * One accent colour, a warm neutral ramp, and generous spacing. The product is
+ * something a tired student reads at 23:00, legibility and calm matter more
+ * than decoration, so there are no gradients on content surfaces and no colour
+ * carries meaning on its own.
+ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-ink-50: oklch(0.985 0.002 260);
+  --color-ink-100: oklch(0.968 0.003 260);
+  --color-ink-200: oklch(0.925 0.005 260);
+  --color-ink-300: oklch(0.862 0.007 260);
+  --color-ink-400: oklch(0.708 0.011 260);
+  --color-ink-500: oklch(0.556 0.013 260);
+  --color-ink-600: oklch(0.44 0.014 260);
+  --color-ink-700: oklch(0.352 0.014 260);
+  --color-ink-800: oklch(0.256 0.013 264);
+  --color-ink-900: oklch(0.196 0.012 266);
+  --color-ink-950: oklch(0.145 0.011 268);
+
+  --color-accent-50: oklch(0.97 0.021 255);
+  --color-accent-100: oklch(0.94 0.042 255);
+  --color-accent-300: oklch(0.82 0.104 255);
+  --color-accent-500: oklch(0.62 0.176 258);
+  --color-accent-600: oklch(0.55 0.183 260);
+  --color-accent-700: oklch(0.48 0.166 262);
+
+  --radius-card: 0.875rem;
+}
+
+:root {
+  --surface: var(--color-ink-50);
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--color-ink-100);
+  --border-subtle: var(--color-ink-200);
+  --text-primary: var(--color-ink-900);
+  --text-secondary: var(--color-ink-600);
+  --text-tertiary: var(--color-ink-500);
+  --accent: var(--color-accent-600);
+  --accent-soft: var(--color-accent-50);
+  color-scheme: light;
+}
+
+.dark {
+  --surface: var(--color-ink-950);
+  --surface-raised: var(--color-ink-900);
+  --surface-sunken: oklch(0.122 0.011 268);
+  --border-subtle: var(--color-ink-800);
+  --text-primary: var(--color-ink-100);
+  --text-secondary: var(--color-ink-400);
+  --text-tertiary: var(--color-ink-500);
+  --accent: var(--color-accent-300);
+  --accent-soft: oklch(0.27 0.06 258);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--surface);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+  }
+
+  /* Visible focus everywhere, because this app is genuinely keyboard-driven. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 999px;
+    border: 3px solid var(--surface);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+  }
+}
+
+@layer utilities {
+  .surface {
+    background: var(--surface-raised);
+  }
+  .surface-sunken {
+    background: var(--surface-sunken);
+  }
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+  .text-tertiary {
+    color: var(--text-tertiary);
+  }
+  .accent-text {
+    color: var(--accent);
+  }
+  .accent-bg {
+    background: var(--accent);
+  }
+  .accent-soft-bg {
+    background: var(--accent-soft);
+  }
+  .border-subtle {
+    border-color: var(--border-subtle);
+  }
+
+  .card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+  }
+
+  .animate-in {
+    animation: fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--surface-sunken) 0%,
+      var(--border-subtle) 50%,
+      var(--surface-sunken) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  /* The streaming answer cursor. */
+  .caret::after {
+    content: "";
+    display: inline-block;
+    width: 0.5ch;
+    height: 1.05em;
+    margin-left: 1px;
+    background: var(--accent);
+    vertical-align: text-bottom;
+    animation: blink 1s steps(2, start) infinite;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
