@@ -49,8 +49,8 @@ $\boldsymbol{X}$ is $n\times p$, so $\boldsymbol{X}'\boldsymbol{X}$ is $(p\times
 
 | Paper | Setting | Answer |
 |---|---|---|
-| **W22** | 13 coefficient lines | $\boldsymbol{13\times13}$ |
-| **LMES** | 7 covariates + intercept | $\boldsymbol{8\times8}$ |
+| **W22** | 13 coefficient lines | $13\times13$ |
+| **LMES** | 7 covariates + intercept | $8\times8$ |
 
 LMES's own key spells the counting out: *"Find $n=50$ from the question, find $p=7$ from the regression table"* — then the matrix is $8\times8$, because their $p$ counts covariates only and the intercept must be added back.
 
@@ -155,8 +155,8 @@ $\boldsymbol{X}$ হলো $n\times p$, তাই $\boldsymbol{X}'\boldsymbol{X}
 
 | পেপার | প্রেক্ষাপট | উত্তর |
 |---|---|---|
-| **W22** | ১৩টা coefficient লাইন | $\boldsymbol{13\times13}$ |
-| **LMES** | ৭টা covariate + intercept | $\boldsymbol{8\times8}$ |
+| **W22** | ১৩টা coefficient লাইন | $13\times13$ |
+| **LMES** | ৭টা covariate + intercept | $8\times8$ |
 
 LMES-এর নিজের key-তে গোনাটা বলে দেওয়া আছে: *"Find $n=50$ from the question, find $p=7$ from the regression table"* — তারপর ম্যাট্রিক্সটা $8\times8$, কারণ ওদের $p$ শুধু covariate গোনে, intercept-টা যোগ করে নিতে হয়।
 
