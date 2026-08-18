@@ -219,6 +219,18 @@ func (c *client) Stream(ctx context.Context, req provider.GenerateRequest) (<-ch
 type embedRequest struct {
 	Model string   `json:"model"`
 	Input []string `json:"input"`
+
+	// Matryoshka models (OpenAI text-embedding-3-*, Gemini) are trained so a
+	// truncated prefix of the vector is still a usable embedding, and expose
+	// that as a request parameter. The schema pins vectors to a fixed width,
+	// so asking for it is the difference between a model being usable here and
+	// not.
+	//
+	// Sent whenever a width is configured. A server that does not understand
+	// the parameter rejects the request, which is the same outcome as the
+	// width check below rejecting a differently-sized vector, but with a
+	// clearer error and before anything is stored.
+	Dimensions int `json:"dimensions,omitempty"`
 }
 
 type embedResponse struct {
@@ -232,7 +244,11 @@ func (c *client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	res, err := c.post(ctx, "/embeddings", embedRequest{Model: c.settings.Model, Input: texts})
+	res, err := c.post(ctx, "/embeddings", embedRequest{
+		Model:      c.settings.Model,
+		Input:      texts,
+		Dimensions: c.settings.Dimensions,
+	})
 	if err != nil {
 		return nil, err
 	}
